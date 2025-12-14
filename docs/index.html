@@ -318,6 +318,173 @@
       margin-top: 4px;
     }
 
+    /* ===== SEARCH MODES ===== */
+    .search-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .search-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .search-card h4 {
+      font-family: var(--serif);
+      font-size: 1.2rem;
+      color: var(--amber);
+      margin-bottom: 8px;
+    }
+
+    .search-card p {
+      color: var(--cream-dim);
+      font-size: 0.8rem;
+    }
+
+    /* ===== PERFORMANCE ===== */
+    .perf-table {
+      width: 100%;
+      max-width: 600px;
+      border-collapse: collapse;
+    }
+
+    .perf-table th, .perf-table td {
+      padding: 16px 20px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .perf-table th {
+      color: var(--cream-dim);
+      font-weight: 400;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+    }
+
+    .perf-table td {
+      color: var(--cream);
+    }
+
+    .perf-table td:last-child {
+      color: var(--amber);
+      font-weight: 500;
+    }
+
+    /* ===== CLI REFERENCE ===== */
+    .cli-section {
+      background: linear-gradient(180deg, transparent, var(--bg-card) 20%, var(--bg-card) 80%, transparent);
+    }
+
+    .cli-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .cli-group h4 {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      color: var(--amber);
+      margin-bottom: 12px;
+    }
+
+    .cli-group ul {
+      list-style: none;
+    }
+
+    .cli-group li {
+      color: var(--cream-dim);
+      font-size: 0.85rem;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .cli-group li code {
+      color: var(--cream);
+    }
+
+    /* ===== STORAGE ===== */
+    .storage-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .storage-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 28px;
+    }
+
+    .storage-card h4 {
+      font-family: var(--serif);
+      font-size: 1.3rem;
+      color: var(--cream);
+      margin-bottom: 8px;
+    }
+
+    .storage-card .badge {
+      display: inline-block;
+      background: var(--amber-glow);
+      color: var(--amber);
+      font-size: 0.65rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .storage-card p {
+      color: var(--cream-dim);
+      font-size: 0.85rem;
+    }
+
+    /* ===== DATA MODEL ===== */
+    .data-model-svg {
+      max-width: 700px;
+      margin: 0 auto;
+      display: block;
+    }
+
+    /* ===== USE CASES ===== */
+    .usecase-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .usecase-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .usecase-card .icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+    }
+
+    .usecase-card h4 {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      color: var(--cream);
+      margin-bottom: 8px;
+    }
+
+    .usecase-card p {
+      color: var(--cream-dim);
+      font-size: 0.8rem;
+    }
+
     /* ===== FEATURES ===== */
     .features-grid {
       display: grid;
@@ -597,6 +764,222 @@
     </div>
   </section>
 
+  <!-- Search Modes -->
+  <section class="search-section">
+    <div class="container">
+      <h2 class="section-title">Search Modes</h2>
+      <div class="search-grid">
+        <div class="search-card">
+          <h4>Exact</h4>
+          <p>Substring matching for precise queries</p>
+        </div>
+        <div class="search-card">
+          <h4>Fuzzy</h4>
+          <p>Nucleo-based typo tolerance with configurable threshold</p>
+        </div>
+        <div class="search-card">
+          <h4>Full-text</h4>
+          <p>Tantivy BM25 ranking for relevance scoring</p>
+        </div>
+        <div class="search-card">
+          <h4>Hybrid</h4>
+          <p>Combined fuzzy + fulltext for best results</p>
+        </div>
+        <div class="search-card">
+          <h4>Vector</h4>
+          <p>Cosine similarity for semantic matching</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Performance -->
+  <section class="perf-section">
+    <div class="container">
+      <h2 class="section-title">Performance</h2>
+      <table class="perf-table">
+        <thead>
+          <tr><th>Operation</th><th>Target</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Cold start</td><td>&lt;10ms</td></tr>
+          <tr><td>Entity create</td><td>&lt;1ms</td></tr>
+          <tr><td>Exact search (10k)</td><td>&lt;5ms</td></tr>
+          <tr><td>Fuzzy search (10k)</td><td>&lt;20ms</td></tr>
+          <tr><td>Cross-project (100k)</td><td>&lt;100ms</td></tr>
+          <tr><td>Binary size</td><td>&lt;15MB</td></tr>
+          <tr><td>Idle memory</td><td>&lt;20MB</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CLI Reference -->
+  <section class="cli-section">
+    <div class="container">
+      <h2 class="section-title">CLI Reference</h2>
+      <div class="cli-grid">
+        <div class="cli-group">
+          <h4>entity</h4>
+          <ul>
+            <li><code>add</code> — create with observations/tags</li>
+            <li><code>list</code> — filter by type/tag</li>
+            <li><code>get</code> — view full details</li>
+            <li><code>delete</code> — remove entity</li>
+            <li><code>observe</code> — add new facts</li>
+          </ul>
+        </div>
+        <div class="cli-group">
+          <h4>relation</h4>
+          <ul>
+            <li><code>add</code> — create typed connection</li>
+            <li><code>list</code> — filter by from/to/type</li>
+            <li><code>delete</code> — remove relation</li>
+            <li><code>traverse</code> — BFS/DFS exploration</li>
+            <li><code>find-path</code> — shortest path</li>
+          </ul>
+        </div>
+        <div class="cli-group">
+          <h4>search</h4>
+          <ul>
+            <li><code>--mode exact</code> — substring match</li>
+            <li><code>--mode fuzzy</code> — typo-tolerant</li>
+            <li><code>--mode fulltext</code> — BM25 ranking</li>
+            <li><code>--mode hybrid</code> — combined</li>
+            <li><code>--all-projects</code> — cross-project</li>
+          </ul>
+        </div>
+        <div class="cli-group">
+          <h4>project</h4>
+          <ul>
+            <li><code>list</code> — all namespaces</li>
+            <li><code>create</code> — new project</li>
+            <li><code>use</code> — set default</li>
+            <li><code>delete</code> — remove project</li>
+            <li><code>stats</code> — entity/relation counts</li>
+          </ul>
+        </div>
+        <div class="cli-group">
+          <h4>import/export</h4>
+          <ul>
+            <li><code>export -o backup.json</code></li>
+            <li><code>export --all-projects</code></li>
+            <li><code>import data.json</code></li>
+            <li><code>import --merge</code> — incremental</li>
+            <li><code>import --target-project</code></li>
+          </ul>
+        </div>
+        <div class="cli-group">
+          <h4>serve</h4>
+          <ul>
+            <li><code>serve</code> — stdio MCP server</li>
+            <li><code>serve -t sse</code> — HTTP/SSE</li>
+            <li><code>--port 3000</code> — custom port</li>
+            <li><code>--host 0.0.0.0</code> — bind address</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Storage Backends -->
+  <section class="storage-section">
+    <div class="container">
+      <h2 class="section-title">Storage Backends</h2>
+      <div class="storage-grid">
+        <div class="storage-card">
+          <h4>ReDB</h4>
+          <span class="badge">Default</span>
+          <p>Embedded key-value store with ACID transactions, memory-mapped I/O, and zero external dependencies.</p>
+        </div>
+        <div class="storage-card">
+          <h4>SQLite</h4>
+          <span class="badge">Feature Flag</span>
+          <p>Familiar relational backend. Compatible with SQL tools. Enable with <code>--features sqlite</code>.</p>
+        </div>
+        <div class="storage-card">
+          <h4>Memory</h4>
+          <span class="badge">Testing</span>
+          <p>In-memory storage for unit tests and development. No persistence, deterministic behavior.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data Model -->
+  <section class="model-section">
+    <div class="container">
+      <h2 class="section-title">Data Model</h2>
+      <svg class="data-model-svg" viewBox="0 0 700 300" fill="none">
+        <!-- Project box -->
+        <rect x="20" y="20" width="660" height="260" rx="12" stroke="#e8a94c" stroke-opacity="0.3" stroke-dasharray="8 4"/>
+        <text x="40" y="50" fill="#a89f94" font-size="12" font-family="monospace">PROJECT (namespace)</text>
+
+        <!-- Entity 1 -->
+        <rect x="60" y="100" width="180" height="120" rx="8" fill="#141414" stroke="#e8a94c" stroke-opacity="0.5"/>
+        <text x="80" y="130" fill="#e8a94c" font-size="14" font-family="serif">Entity</text>
+        <text x="80" y="155" fill="#f5f0e8" font-size="11" font-family="monospace">name: "John_Smith"</text>
+        <text x="80" y="175" fill="#f5f0e8" font-size="11" font-family="monospace">type: "person"</text>
+        <text x="80" y="195" fill="#a89f94" font-size="10" font-family="monospace">observations: [...]</text>
+        <text x="80" y="210" fill="#a89f94" font-size="10" font-family="monospace">tags: ["engineer"]</text>
+
+        <!-- Entity 2 -->
+        <rect x="460" y="100" width="180" height="120" rx="8" fill="#141414" stroke="#e8a94c" stroke-opacity="0.5"/>
+        <text x="480" y="130" fill="#e8a94c" font-size="14" font-family="serif">Entity</text>
+        <text x="480" y="155" fill="#f5f0e8" font-size="11" font-family="monospace">name: "Acme_Corp"</text>
+        <text x="480" y="175" fill="#f5f0e8" font-size="11" font-family="monospace">type: "company"</text>
+        <text x="480" y="195" fill="#a89f94" font-size="10" font-family="monospace">observations: [...]</text>
+        <text x="480" y="210" fill="#a89f94" font-size="10" font-family="monospace">tags: ["tech"]</text>
+
+        <!-- Relation arrow -->
+        <path d="M240 160 L460 160" stroke="#e8a94c" stroke-width="2" marker-end="url(#arrow)"/>
+        <rect x="300" y="140" width="100" height="40" rx="6" fill="#0a0a0a" stroke="#e8a94c" stroke-opacity="0.3"/>
+        <text x="318" y="165" fill="#8ecf9d" font-size="11" font-family="monospace">works_at</text>
+
+        <!-- Arrow marker -->
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#e8a94c"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </section>
+
+  <!-- Use Cases -->
+  <section class="usecase-section">
+    <div class="container">
+      <h2 class="section-title">Use Cases</h2>
+      <div class="usecase-grid">
+        <div class="usecase-card">
+          <div class="icon">🤖</div>
+          <h4>AI Memory</h4>
+          <p>Persistent memory for Claude, ChatGPT, and other assistants</p>
+        </div>
+        <div class="usecase-card">
+          <div class="icon">🧠</div>
+          <h4>Personal Knowledge</h4>
+          <p>Build your second brain with structured facts</p>
+        </div>
+        <div class="usecase-card">
+          <div class="icon">📚</div>
+          <h4>Research Notes</h4>
+          <p>Link papers, concepts, and findings</p>
+        </div>
+        <div class="usecase-card">
+          <div class="icon">📁</div>
+          <h4>Project Docs</h4>
+          <p>Connect architecture decisions and code</p>
+        </div>
+        <div class="usecase-card">
+          <div class="icon">👥</div>
+          <h4>Contact Network</h4>
+          <p>Track relationships and interactions</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- FAQ -->
   <section class="faq-section">
     <div class="container">
@@ -624,6 +1007,36 @@
           <div class="faq-question" onclick="toggleFaq(this)">How is this different from other knowledge tools?</div>
           <div class="faq-answer">
             <p>Unlike cloud-based tools, parsnip is fully local and private. Unlike note apps, it uses graph semantics (entities + relations) for structured knowledge. Unlike vector databases, it supports cross-project search without mixing namespaces.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">How do I backup my data?</div>
+          <div class="faq-answer">
+            <p>Export to JSON: <code>parsnip export --all-projects -o backup.json</code>. This creates a complete backup of all projects, entities, relations, and observations.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">Can I use SQLite instead of ReDB?</div>
+          <div class="faq-answer">
+            <p>Yes! Build with the sqlite feature flag: <code>cargo install parsnip --features sqlite</code>. SQLite is compatible with standard SQL tools for inspection.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">How do I find paths between entities?</div>
+          <div class="faq-answer">
+            <p>Use path finding: <code>parsnip relation find-path Alice Carol</code>. Add <code>--weighted</code> for Dijkstra shortest path, or filter with <code>--relation-types</code>.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">What's the difference between search modes?</div>
+          <div class="faq-answer">
+            <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant with Levenshtein distance. <strong>Fulltext</strong>: BM25 relevance ranking. <strong>Hybrid</strong>: combines fuzzy + fulltext. <strong>Vector</strong>: semantic similarity with embeddings.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">How do I traverse the graph?</div>
+          <div class="faq-answer">
+            <p>Use <code>parsnip relation traverse EntityName</code> with options: <code>-d 3</code> for depth, <code>--direction outgoing</code>, or filter with <code>--entity-types person</code> and <code>--relation-types works_at</code>.</p>
           </div>
         </div>
       </div>
