@@ -1,0 +1,79 @@
+name: Update Homebrew
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get release info
+        id: release
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download release assets
+        run: |
+          gh release download ${{ github.ref_name }} -R omar16100/parsnip -p "*.tar.gz"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute SHA256 hashes
+        id: sha
+        run: |
+          echo "arm64=$(shasum -a 256 parsnip-macos-arm64.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "amd64=$(shasum -a 256 parsnip-macos-amd64.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "linux=$(shasum -a 256 parsnip-linux-amd64.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: omar16100/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update formula
+        run: |
+          cat > Formula/parsnip.rb << 'EOF'
+          class Parsnip < Formula
+            desc "Local-first memory graph for AI assistants"
+            homepage "https://omar16100.github.io/parsnip/"
+            version "${{ steps.release.outputs.version }}"
+            license any_of: ["MIT", "Apache-2.0"]
+
+            on_macos do
+              on_arm do
+                url "https://github.com/omar16100/parsnip/releases/download/v#{version}/parsnip-macos-arm64.tar.gz"
+                sha256 "${{ steps.sha.outputs.arm64 }}"
+              end
+              on_intel do
+                url "https://github.com/omar16100/parsnip/releases/download/v#{version}/parsnip-macos-amd64.tar.gz"
+                sha256 "${{ steps.sha.outputs.amd64 }}"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/omar16100/parsnip/releases/download/v#{version}/parsnip-linux-amd64.tar.gz"
+                sha256 "${{ steps.sha.outputs.linux }}"
+              end
+            end
+
+            def install
+              bin.install "parsnip"
+            end
+
+            test do
+              system "#{bin}/parsnip", "--version"
+            end
+          end
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/parsnip.rb
+          git commit -m "Update parsnip to ${{ steps.release.outputs.version }}"
+          git push
