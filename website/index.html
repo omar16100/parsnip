@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>parsnip — local-first memory graph</title>
+  <meta name="description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Fast, private, portable.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #0a0a0a;
+      --bg-card: #141414;
+      --bg-elevated: #1a1a1a;
+      --amber: #e8a94c;
+      --amber-dim: #c4893a;
+      --amber-glow: rgba(232, 169, 76, 0.15);
+      --cream: #f5f0e8;
+      --cream-dim: #a89f94;
+      --mono: 'JetBrains Mono', monospace;
+      --serif: 'Cormorant Garamond', Georgia, serif;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--mono);
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--cream);
+      background: var(--bg-deep);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    a {
+      color: var(--amber);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    a:hover {
+      color: var(--cream);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      padding: 60px 24px;
+      text-align: center;
+    }
+
+    .hero-graph {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0.6;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo {
+      font-family: var(--serif);
+      font-size: clamp(4rem, 12vw, 8rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--cream);
+      margin-bottom: 16px;
+      animation: fadeUp 1s ease-out;
+    }
+
+    .logo span {
+      color: var(--amber);
+    }
+
+    .tagline {
+      font-family: var(--serif);
+      font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+      font-weight: 400;
+      font-style: italic;
+      color: var(--cream-dim);
+      max-width: 500px;
+      margin: 0 auto 48px;
+      animation: fadeUp 1s ease-out 0.2s both;
+    }
+
+    .hero-install {
+      animation: fadeUp 1s ease-out 0.4s both;
+    }
+
+    .install-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-card);
+      border: 1px solid rgba(232, 169, 76, 0.2);
+      border-radius: 8px;
+      padding: 16px 24px;
+      font-size: 1rem;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .install-box:hover {
+      border-color: var(--amber);
+      box-shadow: 0 0 30px var(--amber-glow);
+    }
+
+    .install-box code {
+      color: var(--amber);
+      font-weight: 500;
+    }
+
+    .install-box .copy-btn {
+      background: none;
+      border: none;
+      color: var(--cream-dim);
+      cursor: pointer;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+
+    .install-box .copy-btn:hover {
+      color: var(--amber);
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--cream-dim);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    /* ===== SECTIONS ===== */
+    section {
+      padding: 100px 0;
+    }
+
+    .section-title {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 400;
+      color: var(--cream);
+      margin-bottom: 48px;
+      position: relative;
+      display: inline-block;
+    }
+
+    .section-title::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      width: 60px;
+      height: 2px;
+      background: var(--amber);
+    }
+
+    /* ===== MCP SETUP ===== */
+    .mcp-section {
+      background: linear-gradient(180deg, transparent, var(--bg-card) 20%, var(--bg-card) 80%, transparent);
+    }
+
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+
+    @media (max-width: 768px) {
+      .mcp-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .mcp-text p {
+      color: var(--cream-dim);
+      margin-bottom: 24px;
+    }
+
+    .code-block {
+      background: var(--bg-deep);
+      border: 1px solid rgba(232, 169, 76, 0.1);
+      border-radius: 8px;
+      padding: 24px;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .code-block::before {
+      content: 'claude_desktop_config.json';
+      position: absolute;
+      top: 0;
+      left: 16px;
+      transform: translateY(-50%);
+      background: var(--bg-deep);
+      padding: 0 8px;
+      font-size: 0.7rem;
+      color: var(--cream-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .code-block pre {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--cream);
+    }
+
+    .code-block .key { color: var(--amber); }
+    .code-block .string { color: #8ecf9d; }
+    .code-block .comment { color: var(--cream-dim); font-style: italic; }
+
+    /* ===== FEATURES ===== */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 32px;
+      transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(232, 169, 76, 0.3);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--amber-glow);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+    }
+
+    .feature-card h3 {
+      font-family: var(--serif);
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--cream);
+      margin-bottom: 12px;
+    }
+
+    .feature-card p {
+      color: var(--cream-dim);
+      font-size: 0.9rem;
+    }
+
+    /* ===== FAQ ===== */
+    .faq-section {
+      background: linear-gradient(180deg, transparent, var(--bg-card) 20%, var(--bg-card) 80%, transparent);
+    }
+
+    .faq-list {
+      max-width: 800px;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 32px 0;
+    }
+
+    .faq-item:first-child {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .faq-question {
+      font-family: var(--serif);
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--cream);
+      margin-bottom: 16px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .faq-question::after {
+      content: '+';
+      color: var(--amber);
+      font-size: 1.5rem;
+      font-weight: 400;
+      transition: transform 0.3s;
+    }
+
+    .faq-item.open .faq-question::after {
+      transform: rotate(45deg);
+    }
+
+    .faq-answer {
+      color: var(--cream-dim);
+      font-size: 0.95rem;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease-out;
+    }
+
+    .faq-item.open .faq-answer {
+      max-height: 500px;
+    }
+
+    .faq-answer p {
+      padding-bottom: 8px;
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      padding: 60px 0;
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .footer-logo {
+      font-family: var(--serif);
+      font-size: 2rem;
+      color: var(--cream);
+      margin-bottom: 16px;
+    }
+
+    .footer-logo span {
+      color: var(--amber);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 24px;
+    }
+
+    .footer-links a {
+      color: var(--cream-dim);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .footer-copy {
+      color: var(--cream-dim);
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <svg class="hero-graph" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#e8a94c" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#e8a94c" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="blur">
+          <feGaussianBlur stdDeviation="2"/>
+        </filter>
+      </defs>
+      <g class="connections" stroke="#e8a94c" stroke-opacity="0.15" stroke-width="1" fill="none">
+        <path d="M150,300 Q300,200 450,280" class="conn"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="3s" repeatCount="indefinite"/></path>
+        <path d="M450,280 Q550,350 700,300" class="conn"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="4s" repeatCount="indefinite"/></path>
+        <path d="M700,300 Q800,250 850,350" class="conn"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="2.5s" repeatCount="indefinite"/></path>
+        <path d="M150,300 Q200,400 350,420" class="conn"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="3.5s" repeatCount="indefinite"/></path>
+        <path d="M350,420 Q500,450 650,400" class="conn"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="4.5s" repeatCount="indefinite"/></path>
+        <path d="M450,280 Q400,350 350,420" class="conn"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="3s" repeatCount="indefinite"/></path>
+        <path d="M700,300 Q720,380 650,400" class="conn"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="2s" repeatCount="indefinite"/></path>
+      </g>
+      <g class="nodes">
+        <circle cx="150" cy="300" r="6" fill="#e8a94c"><animate attributeName="opacity" values="0.3;1;0.3" dur="4s" repeatCount="indefinite"/></circle>
+        <circle cx="450" cy="280" r="8" fill="#e8a94c"><animate attributeName="opacity" values="0.5;1;0.5" dur="3s" repeatCount="indefinite"/></circle>
+        <circle cx="700" cy="300" r="7" fill="#e8a94c"><animate attributeName="opacity" values="0.4;1;0.4" dur="5s" repeatCount="indefinite"/></circle>
+        <circle cx="850" cy="350" r="5" fill="#e8a94c"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="3.5s" repeatCount="indefinite"/></circle>
+        <circle cx="350" cy="420" r="6" fill="#e8a94c"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="4.5s" repeatCount="indefinite"/></circle>
+        <circle cx="650" cy="400" r="5" fill="#e8a94c"><animate attributeName="opacity" values="0.3;0.7;0.3" dur="3s" repeatCount="indefinite"/></circle>
+        <circle cx="250" cy="180" r="4" fill="#e8a94c" opacity="0.3"/>
+        <circle cx="550" cy="150" r="3" fill="#e8a94c" opacity="0.2"/>
+        <circle cx="800" cy="180" r="4" fill="#e8a94c" opacity="0.25"/>
+        <circle cx="100" cy="450" r="3" fill="#e8a94c" opacity="0.2"/>
+        <circle cx="900" cy="480" r="4" fill="#e8a94c" opacity="0.15"/>
+      </g>
+    </svg>
+
+    <div class="hero-content">
+      <h1 class="logo">p<span>a</span>rsnip</h1>
+      <p class="tagline">A local-first memory graph for AI assistants and knowledge workers</p>
+      <div class="hero-install">
+        <div class="install-box">
+          <code>cargo install parsnip</code>
+          <button class="copy-btn" onclick="copyInstall()" title="Copy to clipboard">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="scroll-hint">scroll</div>
+  </section>
+
+  <!-- Features -->
+  <section class="features-section">
+    <div class="container">
+      <h2 class="section-title">Features</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🏠</div>
+          <h3>Local-First</h3>
+          <p>Completely offline. Your data never leaves your machine. Private by design, portable by nature.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🕸️</div>
+          <h3>Graph-Native</h3>
+          <p>Store knowledge as entities, relations, and observations. Not SQL with JSON blobs—true graph semantics.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Cross-Project Search</h3>
+          <p>Search across all your projects without mixing namespaces. Recall everything, organized everywhere.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Blazing Fast</h3>
+          <p>&lt;10ms cold start. &lt;5ms search on 10k entities. Single binary, zero external dependencies.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔀</div>
+          <h3>Hybrid Search</h3>
+          <p>Fuzzy matching for typos + full-text search for relevance. Find what you meant, not just what you typed.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3>MCP Integration</h3>
+          <p>11 tools for AI assistants via Model Context Protocol. Works with Claude Desktop out of the box.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MCP Setup -->
+  <section class="mcp-section">
+    <div class="container">
+      <h2 class="section-title">MCP Setup</h2>
+      <div class="mcp-grid">
+        <div class="mcp-text">
+          <p>Add parsnip to your Claude Desktop configuration to give Claude persistent memory across conversations.</p>
+          <p>Once configured, Claude can create entities, add observations, build relations, and search your knowledge graph.</p>
+        </div>
+        <div class="code-block">
+          <pre><code>{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"parsnip"</span>: {
+      <span class="key">"command"</span>: <span class="string">"parsnip"</span>,
+      <span class="key">"args"</span>: [<span class="string">"mcp"</span>]
+    }
+  }
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-section">
+    <div class="container">
+      <h2 class="section-title">FAQ</h2>
+      <div class="faq-list">
+        <div class="faq-item open">
+          <div class="faq-question" onclick="toggleFaq(this)">What is parsnip?</div>
+          <div class="faq-answer">
+            <p>Parsnip is a single-binary graph database designed for AI assistants and knowledge workers. It stores durable facts as entities and relations, enabling fast retrieval through integrated search and graph traversal.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">How is data stored?</div>
+          <div class="faq-answer">
+            <p>Data is stored locally using ReDB (default) or SQLite. Everything stays on your machine—no cloud, no sync, no accounts. You can export to JSON for backup or migration.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">Can I use it with Claude or other AI assistants?</div>
+          <div class="faq-answer">
+            <p>Yes! Parsnip includes an MCP (Model Context Protocol) server with 11 tools. Add it to Claude Desktop config and Claude gains persistent memory that survives across conversations.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFaq(this)">How is this different from other knowledge tools?</div>
+          <div class="faq-answer">
+            <p>Unlike cloud-based tools, parsnip is fully local and private. Unlike note apps, it uses graph semantics (entities + relations) for structured knowledge. Unlike vector databases, it supports cross-project search without mixing namespaces.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-logo">p<span>a</span>rsnip</div>
+      <div class="footer-links">
+        <a href="https://github.com/omar16100/parsnip" target="_blank">GitHub</a>
+        <a href="https://github.com/omar16100/parsnip#readme" target="_blank">Docs</a>
+        <a href="https://github.com/omar16100/parsnip/issues" target="_blank">Issues</a>
+      </div>
+      <p class="footer-copy">MIT / Apache-2.0 · Built with Rust</p>
+    </div>
+  </footer>
+
+  <script>
+    function copyInstall() {
+      navigator.clipboard.writeText('cargo install parsnip');
+      const btn = document.querySelector('.copy-btn');
+      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8ecf9d" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => {
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      }, 2000);
+    }
+
+    function toggleFaq(el) {
+      const item = el.parentElement;
+      item.classList.toggle('open');
+    }
+
+    // Animate connections
+    document.querySelectorAll('.conn').forEach(path => {
+      const length = path.getTotalLength();
+      path.style.strokeDasharray = length;
+      path.style.strokeDashoffset = length;
+    });
+  </script>
+</body>
+</html>
