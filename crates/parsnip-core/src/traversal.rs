@@ -500,7 +500,7 @@ impl TraversalEngine {
         let mut current = end.to_string();
         let mut total_weight = 0.0;
 
-        while &current != start {
+        while current != start {
             if let Some((prev, edge)) = parent.get(&current) {
                 total_weight += edge.weight.unwrap_or(1.0);
                 edges.push(edge.clone());

@@ -32,7 +32,7 @@ pub enum TagMatchMode {
 }
 
 /// Project scope for search
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProjectScope {
     /// Search in a single project
@@ -40,13 +40,8 @@ pub enum ProjectScope {
     /// Search in multiple specific projects
     Multiple(Vec<ProjectId>),
     /// Search across all projects
+    #[default]
     All,
-}
-
-impl Default for ProjectScope {
-    fn default() -> Self {
-        Self::All
-    }
 }
 
 /// Pagination options
@@ -251,7 +246,7 @@ pub struct PaginationInfo {
 
 impl PaginationInfo {
     pub fn new(current_page: usize, page_size: usize, total_count: usize) -> Self {
-        let total_pages = (total_count + page_size - 1) / page_size;
+        let total_pages = total_count.div_ceil(page_size);
         Self {
             current_page,
             page_size,

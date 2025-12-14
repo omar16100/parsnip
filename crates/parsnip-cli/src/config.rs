@@ -146,6 +146,7 @@ impl Config {
     }
 
     /// Get the effective data directory
+    #[allow(dead_code)]
     pub fn effective_data_dir(&self) -> PathBuf {
         self.data_dir.clone().unwrap_or_else(default_data_dir)
     }

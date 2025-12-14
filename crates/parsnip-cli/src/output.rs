@@ -1,5 +1,7 @@
 //! Output formatting utilities
 
+#![allow(dead_code)]
+
 use serde::Serialize;
 
 /// Output format

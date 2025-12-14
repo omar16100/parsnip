@@ -20,15 +20,15 @@ Parsnip is a single-binary graph database designed to store durable facts as **e
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        PROJECT                              │
-│  ┌─────────────┐                      ┌─────────────┐      │
-│  │   Entity    │      works_at        │   Entity    │      │
-│  │ John_Smith  │ ──────────────────▶  │  Acme_Corp  │      │
-│  │ type:person │                      │type:company │      │
-│  └─────────────┘                      └─────────────┘      │
+│  ┌─────────────┐                      ┌─────────────┐       │
+│  │   Entity    │      works_at        │   Entity    │       │
+│  │ John_Smith  │ ──────────────────▶  │  Acme_Corp  │       │
+│  │ type:person │                      │type:company │       │
+│  └─────────────┘                      └─────────────┘       │
 │        │                                                    │
 │        │ observations:                                      │
 │        │  - "Works on distributed systems"                  │
-│        │  - "Based in Singapore"                            │
+│        │  - "Based in earth".                               │
 │        │ tags: [engineer, senior]                           │
 └─────────────────────────────────────────────────────────────┘
 ```

@@ -200,7 +200,7 @@ parsnip serve --transport stdio
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            PARSNIP-CORE                                      │
+│                            PARSNIP-CORE                                     │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
 │  │  Graph Engine   │  │  Query Planner  │  │  Transaction    │              │
 │  │  • Entities     │  │  • Optimization │  │  Manager        │              │
@@ -211,7 +211,7 @@ parsnip serve --transport stdio
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            PARSNIP-SEARCH                                    │
+│                            PARSNIP-SEARCH                                   │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
 │  │  Fuzzy Search   │  │  Full-Text      │  │  Vector Search  │              │
 │  │  (nucleo)       │  │  (tantivy)      │  │  (optional)     │              │
@@ -220,7 +220,7 @@ parsnip serve --transport stdio
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           PARSNIP-STORAGE                                    │
+│                           PARSNIP-STORAGE                                   │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
 │  │  ReDB Backend   │  │  SQLite Backend │  │  Remote Backend │              │
 │  │  (default)      │  │  (compat mode)  │  │  (future)       │              │
@@ -229,8 +229,8 @@ parsnip serve --transport stdio
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FILE SYSTEM                                     │
-│  ~/.parsnip/                                                                 │
+│                              FILE SYSTEM                                    │
+│  ~/.parsnip/                                                                │
 │  ├── data/                    # Graph data (ReDB)                           │
 │  │   └── parsnip.db                                                         │
 │  ├── index/                   # Tantivy search index                        │
@@ -258,7 +258,7 @@ parsnip serve --transport stdio
 
 ### Observation (Embedded in Entity)
 
-| Field      | Type            | Description                 |
+| Field      | Type            | Description                  |
 |------------|-----------------|------------------------------|
 | id         | ULID            | Unique identifier            |
 | content    | String (FTS)    | The observation text         |
@@ -281,7 +281,7 @@ parsnip serve --transport stdio
 
 ### Project (Namespace)
 
-| Field       | Type            | Description                 |
+| Field       | Type            | Description                  |
 |-------------|-----------------|------------------------------|
 | id          | ULID            | Unique identifier            |
 | name        | String (unique) | Project slug (alphanumeric)  |

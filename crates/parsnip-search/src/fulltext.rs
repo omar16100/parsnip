@@ -20,6 +20,7 @@ pub struct FullTextSearchEngine {
     index: Index,
     reader: IndexReader,
     writer: RwLock<IndexWriter>,
+    #[allow(dead_code)]
     schema: Schema,
     // Fields
     entity_id_field: Field,

@@ -3,6 +3,8 @@
 //! This crate provides different storage backends for persisting
 //! the knowledge graph data.
 
+#![allow(clippy::result_large_err)]
+
 pub mod error;
 pub mod migration;
 pub mod traits;
