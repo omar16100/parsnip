@@ -16,6 +16,7 @@ redb = ["parsnip-storage/redb"]
 sqlite = ["parsnip-storage/sqlite"]
 fulltext = ["parsnip-search/fulltext"]
 sse = ["parsnip-mcp/sse"]
+migrate = ["rusqlite"]
 
 [dependencies]
 parsnip-core = { workspace = true }
@@ -44,6 +45,7 @@ tracing-subscriber = { workspace = true }
 
 # Utils
 dirs = "5.0"
+rusqlite = { version = "0.32", optional = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

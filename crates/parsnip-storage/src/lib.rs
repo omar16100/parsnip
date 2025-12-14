@@ -4,6 +4,7 @@
 //! the knowledge graph data.
 
 pub mod error;
+pub mod migration;
 pub mod traits;
 
 #[cfg(feature = "redb")]
@@ -15,6 +16,7 @@ pub mod sqlite;
 pub mod memory;
 
 pub use error::{StorageError, StorageResult};
+pub use migration::{Migratable, SchemaVersion, CURRENT_VERSION};
 pub use traits::StorageBackend;
 
 #[cfg(feature = "redb")]

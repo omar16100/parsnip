@@ -6,12 +6,22 @@ use std::path::PathBuf;
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
-use clap::Args;
+use clap::{Args, ValueEnum};
 use serde::{Deserialize, Serialize};
 
 use crate::{AppContext, Cli};
 use parsnip_core::{Entity, Project, Relation};
 use parsnip_storage::StorageBackend;
+
+/// Export format
+#[derive(Clone, Copy, Default, ValueEnum)]
+pub enum ExportFormat {
+    #[default]
+    Json,
+    Csv,
+    #[value(name = "graphml")]
+    GraphML,
+}
 
 #[derive(Args)]
 pub struct ImportArgs {
@@ -25,17 +35,25 @@ pub struct ImportArgs {
     /// Merge with existing data (default: error if exists)
     #[arg(long)]
     pub merge: bool,
+
+    /// Import from knowledgegraph-mcp SQLite database
+    #[arg(long)]
+    pub from_knowledgegraph: bool,
 }
 
 #[derive(Args)]
 pub struct ExportArgs {
-    /// Output file (JSON format, stdout if omitted)
+    /// Output file (stdout if omitted)
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 
     /// Export all projects
     #[arg(long)]
     pub all_projects: bool,
+
+    /// Export format
+    #[arg(short, long, default_value = "json")]
+    pub format: ExportFormat,
 }
 
 /// Export format matching the knowledge graph structure
@@ -74,6 +92,17 @@ pub struct RelationExport {
 
 pub async fn run_import(args: &ImportArgs, _cli: &Cli, ctx: &AppContext) -> anyhow::Result<()> {
     tracing::info!("Importing from {:?}", args.file);
+
+    if args.from_knowledgegraph {
+        #[cfg(feature = "migrate")]
+        {
+            return import_from_knowledgegraph(args, ctx).await;
+        }
+        #[cfg(not(feature = "migrate"))]
+        {
+            anyhow::bail!("Migration feature not enabled. Rebuild with --features migrate");
+        }
+    }
 
     // Read file
     let content = std::fs::read_to_string(&args.file)?;
@@ -214,7 +243,11 @@ pub async fn run_export(args: &ExportArgs, cli: &Cli, ctx: &AppContext) -> anyho
         projects: project_exports,
     };
 
-    let json = serde_json::to_string_pretty(&export_data)?;
+    let content = match args.format {
+        ExportFormat::Json => serde_json::to_string_pretty(&export_data)?,
+        ExportFormat::Csv => export_to_csv(&export_data),
+        ExportFormat::GraphML => export_to_graphml(&export_data),
+    };
 
     if let Some(ref path) = args.output {
         // Write with secure permissions (0o600 = owner read/write only)
@@ -226,16 +259,221 @@ pub async fn run_export(args: &ExportArgs, cli: &Cli, ctx: &AppContext) -> anyho
                 .truncate(true)
                 .mode(0o600)
                 .open(path)?;
-            file.write_all(json.as_bytes())?;
+            file.write_all(content.as_bytes())?;
         }
         #[cfg(not(unix))]
         {
-            std::fs::write(path, &json)?;
+            std::fs::write(path, &content)?;
         }
         println!("Exported to {:?}", path);
     } else {
-        println!("{}", json);
+        println!("{}", content);
     }
+
+    Ok(())
+}
+
+fn export_to_csv(data: &ExportData) -> String {
+    let mut output = String::new();
+
+    // Entities CSV
+    output.push_str("# Entities\n");
+    output.push_str("project,name,type,observations,tags\n");
+
+    for project in &data.projects {
+        for entity in &project.entities {
+            let obs = entity.observations.join("; ");
+            let tags = entity.tags.join("; ");
+            output.push_str(&format!(
+                "{},{},{},\"{}\",\"{}\"\n",
+                csv_escape(&project.name),
+                csv_escape(&entity.name),
+                csv_escape(&entity.entity_type),
+                csv_escape(&obs),
+                csv_escape(&tags)
+            ));
+        }
+    }
+
+    output.push_str("\n# Relations\n");
+    output.push_str("project,from,to,type\n");
+
+    for project in &data.projects {
+        for relation in &project.relations {
+            output.push_str(&format!(
+                "{},{},{},{}\n",
+                csv_escape(&project.name),
+                csv_escape(&relation.from),
+                csv_escape(&relation.to),
+                csv_escape(&relation.relation_type)
+            ));
+        }
+    }
+
+    output
+}
+
+fn csv_escape(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+fn export_to_graphml(data: &ExportData) -> String {
+    let mut xml = String::new();
+
+    xml.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key id="d0" for="node" attr.name="type" attr.type="string"/>
+  <key id="d1" for="node" attr.name="observations" attr.type="string"/>
+  <key id="d2" for="node" attr.name="tags" attr.type="string"/>
+  <key id="d3" for="edge" attr.name="type" attr.type="string"/>
+"#);
+
+    for project in &data.projects {
+        xml.push_str(&format!(
+            "  <graph id=\"{}\" edgedefault=\"directed\">\n",
+            xml_escape(&project.name)
+        ));
+
+        // Nodes (entities)
+        for entity in &project.entities {
+            let obs = entity.observations.join("; ");
+            let tags = entity.tags.join("; ");
+            xml.push_str(&format!(
+                "    <node id=\"{}\">\n      <data key=\"d0\">{}</data>\n      <data key=\"d1\">{}</data>\n      <data key=\"d2\">{}</data>\n    </node>\n",
+                xml_escape(&entity.name),
+                xml_escape(&entity.entity_type),
+                xml_escape(&obs),
+                xml_escape(&tags)
+            ));
+        }
+
+        // Edges (relations)
+        for (i, relation) in project.relations.iter().enumerate() {
+            xml.push_str(&format!(
+                "    <edge id=\"e{}\" source=\"{}\" target=\"{}\">\n      <data key=\"d3\">{}</data>\n    </edge>\n",
+                i,
+                xml_escape(&relation.from),
+                xml_escape(&relation.to),
+                xml_escape(&relation.relation_type)
+            ));
+        }
+
+        xml.push_str("  </graph>\n");
+    }
+
+    xml.push_str("</graphml>\n");
+    xml
+}
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+/// Import from knowledgegraph-mcp SQLite database
+#[cfg(feature = "migrate")]
+async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyhow::Result<()> {
+    use rusqlite::Connection;
+
+    let db_path = &args.file;
+    tracing::info!("Importing from knowledgegraph-mcp database: {:?}", db_path);
+
+    let conn = Connection::open(db_path)?;
+
+    // Get project name
+    let project_name = args.target_project.as_deref().unwrap_or("default");
+    let project = if let Some(existing) = ctx.storage.get_project(project_name).await? {
+        if !args.merge {
+            let entity_count = ctx.storage.get_all_entities(&existing.id).await?.len();
+            if entity_count > 0 {
+                anyhow::bail!(
+                    "Project '{}' already has {} entities. Use --merge to add to existing data.",
+                    project_name,
+                    entity_count
+                );
+            }
+        }
+        existing
+    } else {
+        let p = Project::new(project_name);
+        ctx.storage.save_project(&p).await?;
+        p
+    };
+
+    // Read entities from knowledgegraph-mcp
+    let mut stmt = conn.prepare(
+        "SELECT name, entity_type, observations, tags FROM entities"
+    )?;
+
+    let entities_iter = stmt.query_map([], |row| {
+        let name: String = row.get(0)?;
+        let entity_type: String = row.get(1)?;
+        let observations_json: String = row.get(2)?;
+        let tags_json: Option<String> = row.get(3)?;
+        Ok((name, entity_type, observations_json, tags_json))
+    })?;
+
+    let mut entity_count = 0;
+    for entity_result in entities_iter {
+        let (name, entity_type, observations_json, tags_json) = entity_result?;
+
+        let observations: Vec<String> = serde_json::from_str(&observations_json)
+            .unwrap_or_default();
+        let tags: Vec<String> = tags_json
+            .map(|t| serde_json::from_str(&t).unwrap_or_default())
+            .unwrap_or_default();
+
+        let mut entity = Entity::new(project.id.clone(), &name, &entity_type);
+        for obs in observations {
+            entity.add_observation(&obs);
+        }
+        for tag in tags {
+            entity.add_tag(&tag);
+        }
+
+        ctx.storage.save_entity(&entity).await?;
+        entity_count += 1;
+    }
+
+    // Read relations
+    let mut stmt = conn.prepare(
+        "SELECT from_entity, to_entity, relation_type FROM relations"
+    )?;
+
+    let relations_iter = stmt.query_map([], |row| {
+        let from: String = row.get(0)?;
+        let to: String = row.get(1)?;
+        let rel_type: String = row.get(2)?;
+        Ok((from, to, rel_type))
+    })?;
+
+    let mut relation_count = 0;
+    for rel_result in relations_iter {
+        let (from, to, rel_type) = rel_result?;
+        let relation = Relation::from_names(project.id.clone(), &from, &to, &rel_type);
+        ctx.storage.save_relation(&relation).await?;
+        relation_count += 1;
+    }
+
+    tracing::info!(
+        "Imported {} entities and {} relations from knowledgegraph-mcp",
+        entity_count,
+        relation_count
+    );
+    println!(
+        "Imported {} entities and {} relations from knowledgegraph-mcp into project '{}'",
+        entity_count, relation_count, project_name
+    );
 
     Ok(())
 }

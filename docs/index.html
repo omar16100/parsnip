@@ -131,12 +131,13 @@
     .install-box {
       display: inline-flex;
       align-items: center;
-      gap: 12px;
       background: var(--bg-card);
       border: 1px solid rgba(232, 169, 76, 0.2);
       border-radius: 8px;
       padding: 16px 24px;
       font-size: 1rem;
+      cursor: pointer;
+      position: relative;
       transition: border-color 0.3s, box-shadow 0.3s;
     }
 
@@ -150,17 +151,19 @@
       font-weight: 500;
     }
 
-    .install-box .copy-btn {
-      background: none;
-      border: none;
+    .install-box .copy-hint {
+      position: absolute;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.7rem;
       color: var(--cream-dim);
-      cursor: pointer;
-      padding: 4px;
-      transition: color 0.2s;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
 
-    .install-box .copy-btn:hover {
-      color: var(--amber);
+    .install-box:hover .copy-hint {
+      opacity: 1;
     }
 
     .scroll-hint {
@@ -669,14 +672,9 @@
       <h1 class="logo">p<span>a</span>rsnip</h1>
       <p class="tagline">A local-first memory graph for AI assistants and knowledge workers</p>
       <div class="hero-install">
-        <div class="install-box">
+        <div class="install-box" onclick="copyInstall()">
+          <span class="copy-hint">click to copy</span>
           <code>cargo install parsnip</code>
-          <button class="copy-btn" onclick="copyInstall()" title="Copy to clipboard">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-          </button>
         </div>
       </div>
     </div>
@@ -1059,10 +1057,13 @@
   <script>
     function copyInstall() {
       navigator.clipboard.writeText('cargo install parsnip');
-      const btn = document.querySelector('.copy-btn');
-      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8ecf9d" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+      const hint = document.querySelector('.install-box .copy-hint');
+      hint.textContent = 'copied!';
+      hint.style.opacity = '1';
+      hint.style.color = '#8ecf9d';
       setTimeout(() => {
-        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        hint.textContent = 'click to copy';
+        hint.style.color = '';
       }, 2000);
     }
 

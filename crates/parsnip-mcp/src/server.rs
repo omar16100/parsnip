@@ -117,6 +117,7 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             "add_tags" => self.handle_add_tags(params.arguments).await,
             "remove_tags" => self.handle_remove_tags(params.arguments).await,
             "traverse_graph" => self.handle_traverse_graph(params.arguments).await,
+            "list_projects" => self.handle_list_projects().await,
             _ => ToolCallResponse::error(format!("Unknown tool: {}", params.name)),
         };
 
@@ -779,6 +780,34 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         ToolCallResponse::text(serde_json::to_string_pretty(&response).unwrap())
     }
+
+    async fn handle_list_projects(&self) -> ToolCallResponse {
+        let projects = match self.storage.get_all_projects().await {
+            Ok(p) => p,
+            Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
+        };
+
+        let mut results = Vec::new();
+        for project in projects {
+            let entity_count = self.storage.get_all_entities(&project.id).await
+                .map(|e| e.len())
+                .unwrap_or(0);
+            let relation_count = self.storage.get_all_relations(&project.id).await
+                .map(|r| r.len())
+                .unwrap_or(0);
+
+            results.push(ProjectResult {
+                name: project.name,
+                description: project.description,
+                entity_count,
+                relation_count,
+                created_at: project.created_at.to_rfc3339(),
+            });
+        }
+
+        let response = ProjectListResult { projects: results };
+        ToolCallResponse::text(serde_json::to_string_pretty(&response).unwrap())
+    }
 }
 
 // Result types for JSON responses
@@ -882,4 +911,21 @@ struct TraversalStatsJson {
     nodes_visited: usize,
     edges_traversed: usize,
     max_depth_reached: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectListResult {
+    projects: Vec<ProjectResult>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectResult {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    entity_count: usize,
+    relation_count: usize,
+    created_at: String,
 }

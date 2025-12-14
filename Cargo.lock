@@ -1181,6 +1181,7 @@ dependencies = [
  "parsnip-search",
  "parsnip-storage",
  "predicates",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
