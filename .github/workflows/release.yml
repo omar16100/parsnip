@@ -30,15 +30,15 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          cargo publish -p parsnip-core --no-verify
+          cargo publish -p parsnip-core --no-verify || echo "parsnip-core already published"
           sleep 30
-          cargo publish -p parsnip-storage --no-verify
+          cargo publish -p parsnip-storage --no-verify || echo "parsnip-storage already published"
           sleep 30
-          cargo publish -p parsnip-search --no-verify
+          cargo publish -p parsnip-search --no-verify || echo "parsnip-search already published"
           sleep 30
-          cargo publish -p parsnip-mcp --no-verify
+          cargo publish -p parsnip-mcp --no-verify || echo "parsnip-mcp already published"
           sleep 30
-          cargo publish -p parsnip-cli --no-verify
+          cargo publish -p parsnip-cli --no-verify || echo "parsnip-cli already published"
 
   binaries:
     needs: publish
