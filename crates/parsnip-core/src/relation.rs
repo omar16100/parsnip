@@ -30,11 +30,12 @@ impl std::fmt::Display for RelationId {
 }
 
 /// Direction for graph traversal
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
     Outgoing,
     Incoming,
+    #[default]
     Both,
 }
 

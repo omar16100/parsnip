@@ -2,8 +2,11 @@
 
 use std::sync::Arc;
 
-use parsnip_core::{Entity, Project, Relation, SearchMode, SearchQuery};
+use std::collections::HashMap;
+use parsnip_core::{Direction, Entity, Project, Relation, SearchMode, SearchQuery, TraversalEngine, TraversalQuery};
 use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
+#[cfg(feature = "fulltext")]
+use parsnip_search::FullTextSearchEngine;
 use parsnip_storage::StorageBackend;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +52,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
         }
 
         Ok(())
+    }
+
+    /// Handle a JSON-RPC request (public for SSE transport)
+    pub async fn handle_request_public(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+        self.handle_request(request).await
     }
 
     async fn handle_request(&self, request: JsonRpcRequest) -> JsonRpcResponse {
@@ -108,10 +116,14 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             "open_nodes" => self.handle_open_nodes(params.arguments).await,
             "add_tags" => self.handle_add_tags(params.arguments).await,
             "remove_tags" => self.handle_remove_tags(params.arguments).await,
+            "traverse_graph" => self.handle_traverse_graph(params.arguments).await,
             _ => ToolCallResponse::error(format!("Unknown tool: {}", params.name)),
         };
 
-        JsonRpcResponse::success(id, serde_json::to_value(response).unwrap())
+        match serde_json::to_value(response) {
+            Ok(val) => JsonRpcResponse::success(id, val),
+            Err(e) => JsonRpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+        }
     }
 
     async fn get_or_create_project(&self, project_name: &str) -> anyhow::Result<Project> {
@@ -173,6 +185,8 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
         if let Some(ref mode) = args.search_mode {
             query = query.with_mode(match mode.as_str() {
                 "fuzzy" => SearchMode::Fuzzy,
+                "fulltext" => SearchMode::FullText,
+                "hybrid" => SearchMode::Hybrid,
                 _ => SearchMode::Exact,
             });
         }
@@ -186,12 +200,32 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
         }
 
         // Perform search
-        let results = if matches!(query.mode, SearchMode::Fuzzy) {
-            let engine = FuzzySearchEngine::new();
-            engine.search(&query, &entities).await
-        } else {
-            let engine = ExactSearchEngine::new();
-            engine.search(&query, &entities).await
+        let results = match query.mode {
+            SearchMode::Fuzzy => {
+                let engine = FuzzySearchEngine::new();
+                engine.search(&query, &entities).await
+            }
+            #[cfg(feature = "fulltext")]
+            SearchMode::FullText | SearchMode::Hybrid => {
+                match FullTextSearchEngine::in_memory() {
+                    Ok(engine) => engine.search(&query, &entities).await,
+                    Err(e) => {
+                        tracing::warn!("Failed to create fulltext engine: {}, falling back to exact", e);
+                        let engine = ExactSearchEngine::new();
+                        engine.search(&query, &entities).await
+                    }
+                }
+            }
+            #[cfg(not(feature = "fulltext"))]
+            SearchMode::FullText | SearchMode::Hybrid => {
+                tracing::warn!("Fulltext search not enabled, falling back to exact");
+                let engine = ExactSearchEngine::new();
+                engine.search(&query, &entities).await
+            }
+            _ => {
+                let engine = ExactSearchEngine::new();
+                engine.search(&query, &entities).await
+            }
         };
 
         match results {
@@ -636,6 +670,115 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         ToolCallResponse::text(format!("✅ SUCCESS: Removed {} tags", removed))
     }
+
+    async fn handle_traverse_graph(&self, args: serde_json::Value) -> ToolCallResponse {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct TraverseArgs {
+            project_id: Option<String>,
+            start: String,
+            target: Option<String>,
+            max_depth: Option<u32>,
+            direction: Option<String>,
+            entity_type_filter: Option<Vec<String>>,
+            relation_type_filter: Option<Vec<String>>,
+            use_weights: Option<bool>,
+        }
+
+        let args: TraverseArgs = match serde_json::from_value(args) {
+            Ok(a) => a,
+            Err(e) => return ToolCallResponse::error(format!("Invalid arguments: {}", e)),
+        };
+
+        let project_name = args.project_id.as_deref().unwrap_or("default");
+        let project = match self.get_or_create_project(project_name).await {
+            Ok(p) => p,
+            Err(e) => return ToolCallResponse::error(format!("Project error: {}", e)),
+        };
+
+        // Load entities and relations
+        let entities: HashMap<String, Entity> = match self.storage.get_all_entities(&project.id).await {
+            Ok(e) => e.into_iter().map(|ent| (ent.name.clone(), ent)).collect(),
+            Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
+        };
+
+        let relations = match self.storage.get_all_relations(&project.id).await {
+            Ok(r) => r,
+            Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
+        };
+
+        // Check if start entity exists
+        if !entities.contains_key(&args.start) {
+            return ToolCallResponse::error(format!("Start entity '{}' not found", args.start));
+        }
+
+        // Check if target entity exists (if specified)
+        if let Some(ref target) = args.target {
+            if !entities.contains_key(target) {
+                return ToolCallResponse::error(format!("Target entity '{}' not found", target));
+            }
+        }
+
+        // Build traversal query
+        let direction = match args.direction.as_deref() {
+            Some("outgoing") => Direction::Outgoing,
+            Some("incoming") => Direction::Incoming,
+            _ => Direction::Both,
+        };
+
+        let mut query = TraversalQuery::new(&args.start)
+            .with_depth(args.max_depth.unwrap_or(10))
+            .with_direction(direction);
+
+        if let Some(target) = args.target {
+            query = query.find_path_to(&target);
+        }
+
+        if args.use_weights.unwrap_or(false) {
+            query = query.weighted();
+        }
+
+        if let Some(ref etypes) = args.entity_type_filter {
+            query = query.filter_entity_types(etypes.clone());
+        }
+
+        if let Some(ref rtypes) = args.relation_type_filter {
+            query = query.filter_relation_types(rtypes.clone());
+        }
+
+        tracing::info!(
+            "Traversing from '{}' (target: {:?}, depth: {}, direction: {:?})",
+            args.start, query.target, query.max_depth, query.direction
+        );
+
+        // Execute traversal
+        let result = TraversalEngine::execute(&query, &entities, &relations);
+
+        // Convert to JSON response
+        let response = TraversalResultJson {
+            paths: result.paths.iter().map(|p| PathJson {
+                nodes: p.nodes.clone(),
+                edges: p.edges.iter().map(|e| PathEdgeJson {
+                    from: e.from.clone(),
+                    to: e.to.clone(),
+                    relation_type: e.relation_type.clone(),
+                    weight: e.weight,
+                }).collect(),
+                total_weight: p.total_weight,
+                length: p.length,
+            }).collect(),
+            visited_entities: result.visited_entities.clone(),
+            entities: result.entities.iter().map(EntityResult::from).collect(),
+            relations: result.relations.iter().map(RelationResult::from).collect(),
+            stats: TraversalStatsJson {
+                nodes_visited: result.stats.nodes_visited,
+                edges_traversed: result.stats.edges_traversed,
+                max_depth_reached: result.stats.max_depth_reached,
+            },
+        };
+
+        ToolCallResponse::text(serde_json::to_string_pretty(&response).unwrap())
+    }
 }
 
 // Result types for JSON responses
@@ -701,4 +844,42 @@ struct PaginationInfo {
     total_pages: usize,
     has_next_page: bool,
     has_previous_page: bool,
+}
+
+// Traversal result types
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TraversalResultJson {
+    paths: Vec<PathJson>,
+    visited_entities: Vec<String>,
+    entities: Vec<EntityResult>,
+    relations: Vec<RelationResult>,
+    stats: TraversalStatsJson,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PathJson {
+    nodes: Vec<String>,
+    edges: Vec<PathEdgeJson>,
+    total_weight: f64,
+    length: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PathEdgeJson {
+    from: String,
+    to: String,
+    relation_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    weight: Option<f64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TraversalStatsJson {
+    nodes_visited: usize,
+    edges_traversed: usize,
+    max_depth_reached: u32,
 }

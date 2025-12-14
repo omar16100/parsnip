@@ -6,6 +6,11 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = ["fulltext"]
+fulltext = ["parsnip-search/fulltext"]
+sse = ["axum", "tower", "tower-http", "async-stream"]
+
 [dependencies]
 parsnip-core = { workspace = true }
 parsnip-storage = { workspace = true }
@@ -26,6 +31,12 @@ anyhow = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
+
+# HTTP/SSE (optional)
+axum = { workspace = true, optional = true }
+tower = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+async-stream = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

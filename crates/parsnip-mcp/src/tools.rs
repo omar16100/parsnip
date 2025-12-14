@@ -21,7 +21,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search text"},
-                    "project_id": {"type": "string", "description": "Project identifier. Omit to search all projects."},
+                    "projectId": {"type": "string", "description": "Project identifier. Omit to search all projects."},
                     "searchMode": {"type": "string", "enum": ["exact", "fuzzy"], "default": "exact"},
                     "fuzzyThreshold": {"type": "number", "description": "Fuzzy threshold (0.0-1.0)", "default": 0.3},
                     "exactTags": {"type": "array", "items": {"type": "string"}, "description": "Tags for exact-match filtering"},
@@ -37,7 +37,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["entities"],
                 "properties": {
-                    "project_id": {"type": "string", "description": "Project identifier (default: 'default')"},
+                    "projectId": {"type": "string", "description": "Project identifier (default: 'default')"},
                     "entities": {
                         "type": "array",
                         "items": {
@@ -61,7 +61,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["observations"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "observations": {
                         "type": "array",
                         "items": {
@@ -83,7 +83,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["relations"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "relations": {
                         "type": "array",
                         "items": {
@@ -106,7 +106,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["entityNames"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "entityNames": {"type": "array", "items": {"type": "string"}, "description": "Entity names to delete"}
                 }
             }),
@@ -118,7 +118,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["deletions"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "deletions": {
                         "type": "array",
                         "items": {
@@ -140,7 +140,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["relations"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "relations": {
                         "type": "array",
                         "items": {
@@ -162,7 +162,7 @@ pub fn get_tools() -> Vec<Tool> {
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "project_id": {"type": "string", "description": "Project identifier (default: 'default')"}
+                    "projectId": {"type": "string", "description": "Project identifier (default: 'default')"}
                 }
             }),
         },
@@ -173,7 +173,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["names"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "names": {"type": "array", "items": {"type": "string"}, "description": "Exact entity names to retrieve"}
                 }
             }),
@@ -185,7 +185,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["updates"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "updates": {
                         "type": "array",
                         "items": {
@@ -207,7 +207,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["updates"],
                 "properties": {
-                    "project_id": {"type": "string"},
+                    "projectId": {"type": "string"},
                     "updates": {
                         "type": "array",
                         "items": {
@@ -219,6 +219,24 @@ pub fn get_tools() -> Vec<Tool> {
                             }
                         }
                     }
+                }
+            }),
+        },
+        Tool {
+            name: "traverse_graph",
+            description: "Traverse the knowledge graph from a starting entity. Supports path finding between entities, filtered traversal by entity/relation types, and weighted shortest path (Dijkstra).",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["start"],
+                "properties": {
+                    "projectId": {"type": "string", "description": "Project identifier (default: 'default')"},
+                    "start": {"type": "string", "description": "Starting entity name"},
+                    "target": {"type": "string", "description": "Target entity name for path finding (optional)"},
+                    "maxDepth": {"type": "number", "description": "Maximum traversal depth (default: 10)", "default": 10},
+                    "direction": {"type": "string", "enum": ["outgoing", "incoming", "both"], "description": "Traversal direction (default: 'both')", "default": "both"},
+                    "entityTypeFilter": {"type": "array", "items": {"type": "string"}, "description": "Filter traversal to these entity types only"},
+                    "relationTypeFilter": {"type": "array", "items": {"type": "string"}, "description": "Filter traversal to these relation types only"},
+                    "useWeights": {"type": "boolean", "description": "Use weighted shortest path (Dijkstra) when finding paths", "default": false}
                 }
             }),
         },

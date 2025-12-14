@@ -128,7 +128,8 @@ impl Entity {
         let obs = Observation::new(content);
         self.observations.push(obs);
         self.updated_at = Utc::now();
-        self.observations.last().unwrap()
+        // Safe: we just pushed an element, so last() is guaranteed to be Some
+        self.observations.last().expect("observations cannot be empty after push")
     }
 
     /// Add a tag to this entity

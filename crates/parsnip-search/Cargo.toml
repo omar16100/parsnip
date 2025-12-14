@@ -32,6 +32,7 @@ tracing = { workspace = true }
 default = ["fuzzy"]
 fuzzy = ["nucleo", "nucleo-matcher"]
 fulltext = ["tantivy"]
+vector = []
 
 [dev-dependencies]
 tempfile = { workspace = true }

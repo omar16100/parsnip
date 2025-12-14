@@ -1,9 +1,11 @@
 //! Relation commands
 
+use std::collections::HashMap;
+
 use clap::{Args, Subcommand};
 
 use crate::{AppContext, Cli};
-use parsnip_core::{ProjectId, Relation};
+use parsnip_core::{Direction, ProjectId, Relation, TraversalEngine, TraversalQuery};
 use parsnip_storage::StorageBackend;
 
 #[derive(Args)]
@@ -59,6 +61,31 @@ pub enum RelationCommands {
         /// Direction: outgoing, incoming, both
         #[arg(long, default_value = "both")]
         direction: String,
+        /// Filter by relation types (comma-separated)
+        #[arg(short = 'r', long)]
+        relation_types: Option<String>,
+        /// Filter by entity types (comma-separated)
+        #[arg(short = 'e', long)]
+        entity_types: Option<String>,
+    },
+    /// Find path between two entities
+    FindPath {
+        /// Starting entity
+        from: String,
+        /// Target entity
+        to: String,
+        /// Use weighted shortest path (Dijkstra)
+        #[arg(long)]
+        weighted: bool,
+        /// Filter by relation types (comma-separated)
+        #[arg(short = 'r', long)]
+        relation_types: Option<String>,
+        /// Filter by entity types (comma-separated)
+        #[arg(short = 'e', long)]
+        entity_types: Option<String>,
+        /// Maximum search depth
+        #[arg(long, default_value = "10")]
+        max_depth: u32,
     },
 }
 
@@ -154,7 +181,7 @@ pub async fn run(args: &RelationArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Re
             tracing::info!("Deleted relation: {} -[{}]-> {}", from, r#type, to);
             println!("Deleted relation: {} -[{}]-> {}", from, r#type, to);
         }
-        RelationCommands::Traverse { start, depth, direction } => {
+        RelationCommands::Traverse { start, depth, direction, relation_types, entity_types } => {
             let project_id = get_project_id(&cli.project, ctx).await?;
 
             // Check if starting entity exists
@@ -163,54 +190,124 @@ pub async fn run(args: &RelationArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Re
                 return Ok(());
             }
 
+            // Parse direction
+            let dir = match direction.as_str() {
+                "outgoing" => Direction::Outgoing,
+                "incoming" => Direction::Incoming,
+                _ => Direction::Both,
+            };
+
+            // Build query
+            let mut query = TraversalQuery::new(start).with_depth(*depth).with_direction(dir);
+
+            if let Some(ref rtypes) = relation_types {
+                let types: Vec<String> = rtypes.split(',').map(|s| s.trim().to_string()).collect();
+                query = query.filter_relation_types(types);
+            }
+
+            if let Some(ref etypes) = entity_types {
+                let types: Vec<String> = etypes.split(',').map(|s| s.trim().to_string()).collect();
+                query = query.filter_entity_types(types);
+            }
+
+            // Load data
+            let entities: HashMap<String, _> = ctx.storage.get_all_entities(&project_id).await?
+                .into_iter().map(|e| (e.name.clone(), e)).collect();
             let relations = ctx.storage.get_all_relations(&project_id).await?;
+
             tracing::info!("Traversing from {} (depth: {}, direction: {})", start, depth, direction);
 
+            // Execute traversal
+            let result = TraversalEngine::execute(&query, &entities, &relations);
+
             println!("Traversal from '{}' (depth: {}, direction: {}):", start, depth, direction);
+            println!("  Visited {} entities, traversed {} edges",
+                result.stats.nodes_visited, result.stats.edges_traversed);
 
-            // Simple BFS traversal
-            let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
-            let mut queue: Vec<(String, u32)> = vec![(start.clone(), 0)];
+            if result.visited_entities.len() <= 1 {
+                println!("  (no connected entities found)");
+            } else {
+                println!("  Entities: {}", result.visited_entities.join(", "));
 
-            while let Some((current, current_depth)) = queue.pop() {
-                if current_depth >= *depth || visited.contains(&current) {
-                    continue;
-                }
-                visited.insert(current.clone());
-
-                for rel in &relations {
-                    let next = match direction.as_str() {
-                        "outgoing" if rel.from_name == current => Some(&rel.to_name),
-                        "incoming" if rel.to_name == current => Some(&rel.from_name),
-                        "both" => {
-                            if rel.from_name == current {
-                                Some(&rel.to_name)
-                            } else if rel.to_name == current {
-                                Some(&rel.from_name)
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    };
-
-                    if let Some(next_entity) = next {
-                        if !visited.contains(next_entity) {
-                            let indent = "  ".repeat((current_depth + 1) as usize);
-                            let arrow = if rel.from_name == current {
-                                format!("{} -[{}]-> {}", current, rel.relation_type, next_entity)
-                            } else {
-                                format!("{} <-[{}]- {}", current, rel.relation_type, next_entity)
-                            };
-                            println!("{}{}", indent, arrow);
-                            queue.push((next_entity.clone(), current_depth + 1));
-                        }
+                if !result.relations.is_empty() {
+                    println!("  Relations:");
+                    for rel in &result.relations {
+                        let weight_str = rel.weight
+                            .map(|w| format!(" (weight: {:.2})", w))
+                            .unwrap_or_default();
+                        println!("    {} -[{}]-> {}{}",
+                            rel.from_name, rel.relation_type, rel.to_name, weight_str);
                     }
                 }
             }
+        }
+        RelationCommands::FindPath { from, to, weighted, relation_types, entity_types, max_depth } => {
+            let project_id = get_project_id(&cli.project, ctx).await?;
 
-            if visited.len() <= 1 {
-                println!("  (no connected entities found)");
+            // Check if both entities exist
+            if ctx.storage.get_entity(from, &project_id).await?.is_none() {
+                println!("Entity '{}' not found in project '{}'", from, cli.project);
+                return Ok(());
+            }
+            if ctx.storage.get_entity(to, &project_id).await?.is_none() {
+                println!("Entity '{}' not found in project '{}'", to, cli.project);
+                return Ok(());
+            }
+
+            // Build query
+            let mut query = TraversalQuery::new(from)
+                .find_path_to(to)
+                .with_depth(*max_depth);
+
+            if *weighted {
+                query = query.weighted();
+            }
+
+            if let Some(ref rtypes) = relation_types {
+                let types: Vec<String> = rtypes.split(',').map(|s| s.trim().to_string()).collect();
+                query = query.filter_relation_types(types);
+            }
+
+            if let Some(ref etypes) = entity_types {
+                let types: Vec<String> = etypes.split(',').map(|s| s.trim().to_string()).collect();
+                query = query.filter_entity_types(types);
+            }
+
+            // Load data
+            let entities: HashMap<String, _> = ctx.storage.get_all_entities(&project_id).await?
+                .into_iter().map(|e| (e.name.clone(), e)).collect();
+            let relations = ctx.storage.get_all_relations(&project_id).await?;
+
+            tracing::info!("Finding path from {} to {} (weighted: {}, max_depth: {})",
+                from, to, weighted, max_depth);
+
+            // Execute path finding
+            let result = TraversalEngine::execute(&query, &entities, &relations);
+
+            if result.paths.is_empty() {
+                println!("No path found from '{}' to '{}'", from, to);
+                println!("  (searched {} nodes, {} edges)",
+                    result.stats.nodes_visited, result.stats.edges_traversed);
+            } else {
+                let algo = if *weighted { "Dijkstra" } else { "BFS" };
+                println!("Path found from '{}' to '{}' using {}:", from, to, algo);
+
+                for (i, path) in result.paths.iter().enumerate() {
+                    println!("\n  Path {}: {} hops, total weight: {:.2}",
+                        i + 1, path.length, path.total_weight);
+                    println!("  Route: {}", path.nodes.join(" -> "));
+
+                    for edge in &path.edges {
+                        let weight_str = edge.weight
+                            .map(|w| format!(" (weight: {:.2})", w))
+                            .unwrap_or_default();
+                        println!("    {} -[{}]-> {}{}",
+                            edge.from, edge.relation_type, edge.to, weight_str);
+                    }
+                }
+
+                println!("\n  Stats: visited {} nodes, traversed {} edges",
+                    result.stats.nodes_visited, result.stats.edges_traversed);
             }
         }
     }

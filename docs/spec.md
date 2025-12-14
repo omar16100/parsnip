@@ -1,4 +1,4 @@
-# Parsnip Technical Specification v0.1.0
+# Parsnip Product Vision & Technical Specification v0.1.0
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -15,21 +15,178 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-## 1. Executive Summary
+## Document Status
 
-Parsnip is a high-performance, open-source memory management platform designed
-for AI assistants and knowledge workers. Built in Rust for speed and safety,
-it provides persistent graph-based storage with both CLI and MCP interfaces.
+This document is **vision-first**: it describes the intended user experience and
+product guarantees for Parsnip. The appendices include technical sketches and
+may lag behind the implementation.
 
-**Key Differentiators:**
-- Single binary, zero dependencies
-- Native graph database (not SQL with JSON blobs)
-- Cross-project search by default
-- Sub-millisecond query performance
-- Built-in full-text and fuzzy search
-- MCP-native for AI assistant integration
+## Table of Contents
 
-## 2. Architecture
+- 1. Vision & Positioning
+- 2. Target Users & Jobs-to-be-Done
+- 3. Core Workflows
+- 4. Product Guarantees & Success Metrics
+- 5. Roadmap
+- Appendix A: Architecture
+- Appendix B: Data Model
+- Appendix C: Repository & Crate Layout
+- Appendix D: Dependencies
+- Appendix E: CLI Reference (Target)
+- Appendix F: MCP Tools (Target)
+- Appendix G: Core Traits (Sketch)
+- Appendix H: Storage Schema (Sketch)
+- Appendix I: Performance Targets
+- Appendix J: Configuration
+- Appendix K: Build & Distribution
+- Appendix L: Testing Strategy
+- Appendix M: Migration Path
+- Appendix N: License & Governance
+
+## 1. Vision & Positioning
+
+Parsnip is a **local-first memory graph** for AI assistants and knowledge
+workers: capture durable facts as entities and relations, then reliably retrieve
+them later with fast search and traversal.
+
+### Problem
+
+- Memory is often scattered across chats, notes, and one-off JSON/SQLite files.
+- Retrieval needs to be fast, scoped (projects), and automatable (CLI/MCP).
+- Users want strong defaults (offline, private, portable) without extra services.
+
+### What Parsnip Is
+
+- A single-binary graph store + search index with a stable, assistant-friendly model.
+- A CLI for humans/scripts and an MCP server for assistant integrations.
+- A “memory layer” you can adopt incrementally (import/migrate over time).
+
+### Non-goals (v0.x)
+
+- A hosted SaaS or collaborative multi-user service.
+- A full note-taking UI (APIs/CLI/MCP first; UIs are optional).
+- A general-purpose database (optimize for assistant memory primitives).
+
+### Product Principles
+
+- Local-first and offline by default.
+- Cross-project recall without losing namespaces.
+- Pipe-friendly, scriptable interfaces.
+- Fast defaults; advanced features should be opt-in.
+
+### Differentiators
+
+- Graph-native model (entities/relations/observations), not “SQL + JSON blobs”.
+- Cross-project search as a first-class feature.
+- No external services required; portable on-disk format.
+
+## 2. Target Users & Jobs-to-be-Done
+
+### Target users
+
+- **Assistant builders**: need persistent memory with predictable retrieval APIs.
+- **Knowledge workers**: want a lightweight local “second brain” with structure.
+- **Tooling/ops engineers**: want a single binary, simple deployment, clear data ownership.
+
+### Jobs-to-be-done
+
+- “When I learn a fact, capture it once and reuse it everywhere.”
+- “When I ask a question later, retrieve the right entity quickly, even with typos.”
+- “When context spans projects, search across them without mixing namespaces.”
+- “When I switch machines, backup/migrate/restore without losing meaning.”
+
+## 3. Core Workflows
+
+### Capture (create/update)
+
+Create entities with observations and tags, then add observations over time.
+
+```bash
+# Target CLI shape
+parsnip entity add "John_Smith" --type person \
+  --obs "Senior engineer at Google" \
+  --tag mentor
+parsnip entity observe "John_Smith" "Started new project on AI safety"
+```
+
+### Connect (relationships)
+
+Create typed relations and traverse the graph from any entity.
+
+```bash
+parsnip relation add "John_Smith" "Google" --type works_at
+parsnip relation traverse "John_Smith" --depth 2 --direction outgoing
+```
+
+### Recall (search + traversal)
+
+Search should work within a project by default, and support explicit cross-project recall.
+
+```bash
+parsnip search "distributed systems"
+parsnip search "jonh smth" --fuzzy --threshold 0.3
+parsnip search "bail" --all-projects
+```
+
+### Integrate (MCP)
+
+Run an MCP server over stdio so assistants can call tools like `search_knowledge`.
+
+```bash
+parsnip serve --transport stdio
+```
+
+### Operate (configuration, backup, migration)
+
+- Default data lives under `~/.parsnip/` (config, DB, index).
+- Import/export and migration should be verifiable and repeatable.
+
+## 4. Product Guarantees & Success Metrics
+
+### Guarantees (intended)
+
+- Local-first by default; no network required for core operations.
+- Durable storage with explicit project namespaces.
+- Stable identifiers for entities/relations/observations once written.
+- Compatibility guarantees tighten over time (see Appendix N).
+
+### Success metrics (how we’ll know it’s working)
+
+- **Time-to-first-result**: “find an entity I just created” in < 2 seconds end-to-end.
+- **Retrieval quality**: top-3 contains the correct entity for common fuzzy queries.
+- **Performance**: meet Appendix I targets on a published reference dataset/hardware profile.
+- **Reliability**: import/migration is repeatable and verifiable.
+
+## 5. Roadmap
+
+### v0.1.x — MVP: fast local memory
+
+- CRUD entities/relations/tags/observations
+- Local storage (ReDB default) + SQLite compatibility mode
+- CLI + MCP (stdio)
+- Exact + fuzzy search; explicit cross-project recall
+
+### v0.2.x — Search quality
+
+- Full-text search (Tantivy) and hybrid ranking
+- Query syntax and better filtering/sorting
+
+### v0.3.x — Data management
+
+- Import/export polish, backups, repair tooling
+- Config ergonomics and migration hardening
+
+### v0.4.x — Advanced (optional)
+
+- Embeddings + semantic search (opt-in)
+- Graph analytics and richer traversal
+
+### v1.0 — Stability & ecosystem
+
+- Stable API surface and compatibility guarantees
+- Plugin surface and optional UIs
+
+## Appendix A: Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -82,7 +239,7 @@ it provides persistent graph-based storage with both CLI and MCP interfaces.
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 3. Data Model
+## Appendix B: Data Model
 
 ### Entity (Node)
 
@@ -132,7 +289,10 @@ it provides persistent graph-based storage with both CLI and MCP interfaces.
 | created_at  | DateTime<Utc>   | Creation timestamp           |
 | settings    | ProjectSettings | Project-specific config      |
 
-## 4. Crate Structure
+## Appendix C: Repository & Crate Layout
+
+> Note: this section describes the intended end-state layout. Some directories or
+> crates may be empty while the workspace is being bootstrapped.
 
 ```
 parsnip/
@@ -218,7 +378,7 @@ parsnip/
         └── _parsnip.ps1
 ```
 
-## 5. Dependencies
+## Appendix D: Dependencies
 
 ```toml
 [workspace.dependencies]
@@ -226,7 +386,7 @@ parsnip/
 tokio = { version = "1.40", features = ["full"] }
 
 # CLI
-clap = { version = "4.5", features = ["derive", "env"] }
+clap = { version = "4.5", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.5"
 
 # Serialization
@@ -235,16 +395,16 @@ serde_json = "1.0"
 toml = "0.8"
 
 # Storage
-redb = "2.2"                        # Embedded database (default)
-rusqlite = { version = "0.32", features = ["bundled"] }  # SQLite compat
+redb = "2.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 # Search
-tantivy = "0.22"                    # Full-text search
-nucleo = "0.5"                      # Fuzzy matching
+tantivy = "0.22"
+nucleo = "0.5"
 nucleo-matcher = "0.3"
 
 # IDs
-ulid = "1.1"                        # Sortable unique IDs
+ulid = { version = "1.1", features = ["serde"] }
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
@@ -257,9 +417,9 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# MCP Protocol
-jsonrpc-core = "18.0"
-serde_repr = "0.1"
+# Async
+async-trait = "0.1"
+futures = "0.3"
 
 # Testing
 tempfile = "3.13"
@@ -267,7 +427,7 @@ assert_cmd = "2.0"
 predicates = "3.1"
 ```
 
-## 6. CLI Interface
+## Appendix E: CLI Reference (Target)
 
 ```
 USAGE: parsnip [OPTIONS] <COMMAND>
@@ -413,7 +573,7 @@ parsnip serve --project security-research
 parsnip serve --allow-cross-project
 ```
 
-## 7. MCP Tools
+## Appendix F: MCP Tools (Target)
 
 | Tool                | Description                              |
 |---------------------|------------------------------------------|
@@ -497,72 +657,73 @@ parsnip serve --allow-cross-project
 }
 ```
 
-## 8. Core Traits
+## Appendix G: Core Traits (Sketch)
 
 ```rust
-// parsnip-core/src/graph.rs
-
-/// Main graph trait - all storage backends implement this
+// Source of truth: crates/parsnip-core/src/graph.rs
 #[async_trait]
 pub trait KnowledgeGraph: Send + Sync {
     // Entity operations
-    async fn create_entity(&self, entity: NewEntity, project: &ProjectId)
-        -> Result<Entity>;
-    async fn get_entity(&self, name: &str, project: &ProjectId)
-        -> Result<Option<Entity>>;
-    async fn update_entity(&self, name: &str, update: EntityUpdate, project: &ProjectId)
-        -> Result<Entity>;
-    async fn delete_entity(&self, name: &str, project: &ProjectId)
-        -> Result<()>;
+    async fn create_entity(&self, entity: NewEntity, project: &ProjectId) -> Result<Entity>;
+    async fn get_entity(&self, name: &str, project: &ProjectId) -> Result<Option<Entity>>;
+    async fn get_entities(&self, names: &[String], project: &ProjectId) -> Result<Vec<Entity>>;
+    async fn update_entity(&self, entity: &Entity) -> Result<Entity>;
+    async fn delete_entity(&self, name: &str, project: &ProjectId) -> Result<()>;
 
     // Observation operations
-    async fn add_observations(&self, name: &str, obs: Vec<String>, project: &ProjectId)
-        -> Result<Vec<Observation>>;
-    async fn delete_observations(&self, name: &str, obs_ids: Vec<ObservationId>, project: &ProjectId)
-        -> Result<()>;
+    async fn add_observations(
+        &self,
+        name: &str,
+        observations: Vec<String>,
+        project: &ProjectId,
+    ) -> Result<Entity>;
+    async fn remove_observations(
+        &self,
+        name: &str,
+        observation_ids: &[String],
+        project: &ProjectId,
+    ) -> Result<Entity>;
+
+    // Tag operations
+    async fn add_tags(&self, name: &str, tags: Vec<String>, project: &ProjectId) -> Result<Entity>;
+    async fn remove_tags(&self, name: &str, tags: &[String], project: &ProjectId) -> Result<Entity>;
 
     // Relation operations
-    async fn create_relation(&self, relation: NewRelation, project: &ProjectId)
-        -> Result<Relation>;
-    async fn get_relations(&self, entity: &str, direction: Direction, project: &ProjectId)
-        -> Result<Vec<Relation>>;
-    async fn delete_relation(&self, relation_id: &RelationId, project: &ProjectId)
-        -> Result<()>;
+    async fn create_relation(&self, relation: NewRelation, project: &ProjectId) -> Result<Relation>;
+    async fn get_relations(
+        &self,
+        entity_name: &str,
+        direction: Direction,
+        project: &ProjectId,
+    ) -> Result<Vec<Relation>>;
+    async fn delete_relation(
+        &self,
+        from: &str,
+        to: &str,
+        relation_type: &str,
+        project: &ProjectId,
+    ) -> Result<()>;
 
     // Graph operations
-    async fn read_graph(&self, project: &ProjectId)
-        -> Result<Graph>;
-    async fn traverse(&self, start: &str, depth: u32, direction: Direction, project: &ProjectId)
-        -> Result<Graph>;
+    async fn read_graph(&self, project: &ProjectId) -> Result<Graph>;
+    async fn traverse(
+        &self,
+        start: &str,
+        depth: u32,
+        direction: Direction,
+        project: &ProjectId,
+    ) -> Result<Graph>;
+
+    // Search operations
+    async fn search(&self, query: SearchQuery) -> Result<PaginatedResults<Entity>>;
 
     // Project operations
-    async fn list_projects(&self)
-        -> Result<Vec<Project>>;
-    async fn create_project(&self, project: NewProject)
-        -> Result<Project>;
-    async fn delete_project(&self, project: &ProjectId)
-        -> Result<()>;
-}
-
-// parsnip-search/src/traits.rs
-
-/// Search trait - different search engines implement this
-#[async_trait]
-pub trait SearchEngine: Send + Sync {
-    async fn search(&self, query: SearchQuery)
-        -> Result<SearchResults>;
-
-    async fn search_all_projects(&self, query: SearchQuery)
-        -> Result<SearchResults>;
-
-    async fn index_entity(&self, entity: &Entity, project: &ProjectId)
-        -> Result<()>;
-
-    async fn remove_entity(&self, entity_id: &EntityId, project: &ProjectId)
-        -> Result<()>;
-
-    async fn rebuild_index(&self, project: Option<&ProjectId>)
-        -> Result<()>;
+    async fn list_projects(&self) -> Result<Vec<Project>>;
+    async fn create_project(&self, name: &str, description: Option<&str>) -> Result<Project>;
+    async fn get_project(&self, name: &str) -> Result<Option<Project>>;
+    async fn get_project_by_id(&self, id: &ProjectId) -> Result<Option<Project>>;
+    async fn delete_project(&self, name: &str) -> Result<()>;
+    async fn get_or_create_default_project(&self) -> Result<Project>;
 }
 
 /// Search query builder
@@ -575,6 +736,7 @@ pub struct SearchQuery {
     pub tag_match_mode: TagMatchMode,
     pub projects: ProjectScope,
     pub pagination: Pagination,
+    pub include_relations: bool,
 }
 
 pub enum ProjectScope {
@@ -589,9 +751,19 @@ pub enum SearchMode {
     FullText,
     Hybrid,  // Combines fuzzy + fulltext
 }
+
+pub enum TagMatchMode {
+    Any,
+    All,
+}
+
+pub struct Pagination {
+    pub page: usize,
+    pub page_size: usize,
+}
 ```
 
-## 9. Storage Schema (ReDB)
+## Appendix H: Storage Schema (Sketch)
 
 ```rust
 // ReDB table definitions
@@ -633,7 +805,7 @@ const TYPE_INDEX: MultimapTableDefinition<(&str, &str), &str> =
     MultimapTableDefinition::new("type_idx");
 ```
 
-## 10. Performance Targets
+## Appendix I: Performance Targets
 
 | Metric                       | Target   | Notes                     |
 |------------------------------|----------|---------------------------|
@@ -651,7 +823,7 @@ const TYPE_INDEX: MultimapTableDefinition<(&str, &str), &str> =
 | Binary size                  | < 15MB   | Release build, stripped   |
 | Database size (10k entities) | < 50MB   | With FTS index            |
 
-## 11. Configuration
+## Appendix J: Configuration
 
 ```toml
 # ~/.parsnip/config.toml
@@ -683,7 +855,7 @@ color = "auto"                      # auto, always, never
 pager = true                        # Use pager for long output
 ```
 
-## 12. Build & Distribution
+## Appendix K: Build & Distribution
 
 ### Build Targets
 
@@ -704,7 +876,7 @@ pager = true                        # Use pager for long output
 - Docker: `ghcr.io/parsnip-ai/parsnip:latest`
 - Nix: `nix run github:parsnip-ai/parsnip`
 
-## 13. Testing Strategy
+## Appendix L: Testing Strategy
 
 - **Unit Tests**: Core graph operations, search algorithms, serialization
 - **Integration Tests**: End-to-end CLI workflows, MCP protocol compliance
@@ -713,7 +885,7 @@ pager = true                        # Use pager for long output
 
 **Coverage Target**: > 80%
 
-## 14. Migration Path
+## Appendix M: Migration Path
 
 ```bash
 # One-command migration from knowledgegraph-mcp
@@ -730,42 +902,7 @@ parsnip project list
 parsnip search "bail" --all-projects
 ```
 
-## 15. Roadmap
-
-### Phase 1: MVP (v0.1.0)
-- [x] Core graph operations
-- [x] ReDB storage backend
-- [x] Basic CLI commands
-- [x] MCP server (stdio)
-- [x] Exact + fuzzy search
-- [x] Cross-project search
-- [ ] Import from knowledgegraph-mcp
-
-### Phase 2: Search (v0.2.0)
-- [ ] Tantivy full-text search
-- [ ] Hybrid search mode
-- [ ] Search result ranking
-- [ ] Query syntax (field:value, AND/OR)
-
-### Phase 3: Features (v0.3.0)
-- [ ] Graph visualization export (GraphML, DOT)
-- [ ] Backup/restore commands
-- [ ] Encryption at rest
-- [ ] Remote sync (future)
-
-### Phase 4: Advanced (v0.4.0)
-- [ ] Vector embeddings (optional)
-- [ ] Semantic search
-- [ ] Graph analytics
-- [ ] Multi-user support
-
-### Phase 5: Ecosystem (v1.0.0)
-- [ ] Stable API
-- [ ] Plugin system
-- [ ] Web UI (optional)
-- [ ] Cloud sync (optional)
-
-## 16. License & Governance
+## Appendix N: License & Governance
 
 **License**: MIT OR Apache-2.0 (dual license, user's choice)
 

@@ -1,13 +1,13 @@
 //! Hybrid search combining fuzzy and full-text search
 
 use async_trait::async_trait;
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::Path;
 
-use parsnip_core::{Entity, EntityId, ProjectId, SearchQuery, SearchMode};
+use parsnip_core::{Entity, ProjectId, SearchQuery, SearchMode};
 use crate::fuzzy::FuzzySearchEngine;
 use crate::fulltext::FullTextSearchEngine;
-use crate::traits::{Result, SearchEngine, SearchError, SearchHit};
+use crate::traits::{Result, SearchEngine};
 
 /// Hybrid search engine combining fuzzy and full-text search
 pub struct HybridSearchEngine {
@@ -33,59 +33,61 @@ impl HybridSearchEngine {
 
 #[async_trait]
 impl SearchEngine for HybridSearchEngine {
-    async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
+    async fn search(&self, query: &SearchQuery, entities: &[Entity]) -> Result<Vec<Entity>> {
         match query.mode {
             SearchMode::Exact => {
                 // For exact mode, use fulltext with exact matching
-                self.fulltext.search(query).await
+                self.fulltext.search(query, entities).await
             }
             SearchMode::Fuzzy => {
-                self.fuzzy.search(query).await
+                self.fuzzy.search(query, entities).await
             }
             SearchMode::FullText => {
-                self.fulltext.search(query).await
+                self.fulltext.search(query, entities).await
             }
             SearchMode::Hybrid => {
                 // Combine results from both engines
-                let fuzzy_hits = self.fuzzy.search(query).await?;
-                let fulltext_hits = self.fulltext.search(query).await?;
+                let fuzzy_results = self.fuzzy.search(query, entities).await?;
+                let fulltext_results = self.fulltext.search(query, entities).await?;
 
-                // Merge and deduplicate by entity_id
-                let mut combined: HashMap<String, SearchHit> = HashMap::new();
+                // Merge and deduplicate by name
+                let mut seen: HashSet<String> = HashSet::new();
+                let mut combined = Vec::new();
 
-                for hit in fuzzy_hits {
-                    let key = hit.entity_id.to_string();
-                    combined.entry(key).or_insert(hit);
+                // Prioritize fulltext results (typically more relevant)
+                for entity in fulltext_results {
+                    if seen.insert(entity.name.clone()) {
+                        combined.push(entity);
+                    }
                 }
 
-                for hit in fulltext_hits {
-                    let key = hit.entity_id.to_string();
-                    combined.entry(key)
-                        .and_modify(|existing| {
-                            // Boost score if found in both
-                            existing.score = (existing.score + hit.score) / 2.0 * 1.2;
-                        })
-                        .or_insert(hit);
+                // Add fuzzy results not already included
+                for entity in fuzzy_results {
+                    if seen.insert(entity.name.clone()) {
+                        combined.push(entity);
+                    }
                 }
 
-                let mut hits: Vec<_> = combined.into_values().collect();
-                hits.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-
-                Ok(hits)
+                Ok(combined)
+            }
+            SearchMode::Vector => {
+                // Vector search requires VectorSearchEngine, not available in HybridSearchEngine
+                tracing::warn!("Vector search mode not supported in HybridSearchEngine");
+                Ok(Vec::new())
             }
         }
     }
 
-    async fn index_entity(&self, entity: &Entity) -> Result<()> {
+    async fn index_entity(&self, entity: &Entity, project_id: &ProjectId) -> Result<()> {
         // Index in both engines
-        self.fuzzy.index_entity(entity).await?;
-        self.fulltext.index_entity(entity).await?;
+        self.fuzzy.index_entity(entity, project_id).await?;
+        self.fulltext.index_entity(entity, project_id).await?;
         Ok(())
     }
 
-    async fn remove_entity(&self, entity_id: &EntityId, project_id: &ProjectId) -> Result<()> {
-        self.fuzzy.remove_entity(entity_id, project_id).await?;
-        self.fulltext.remove_entity(entity_id, project_id).await?;
+    async fn remove_entity(&self, entity_name: &str, project_id: &ProjectId) -> Result<()> {
+        self.fuzzy.remove_entity(entity_name, project_id).await?;
+        self.fulltext.remove_entity(entity_name, project_id).await?;
         Ok(())
     }
 
@@ -99,26 +101,19 @@ impl SearchEngine for HybridSearchEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parsnip_core::NewEntity;
 
     #[tokio::test]
     async fn test_hybrid_search() {
         let engine = HybridSearchEngine::in_memory().unwrap();
         let project_id = ProjectId::new();
 
-        let entity = NewEntity::new("John_Smith", "person")
-            .unwrap()
-            .with_observation("Senior engineer at Google")
-            .build(project_id.clone());
+        let mut entity = parsnip_core::Entity::new(project_id.clone(), "John_Smith", "person");
+        entity.add_observation("Senior engineer at Google");
 
-        engine.index_entity(&entity).await.unwrap();
+        let entities = vec![entity];
+        let query = SearchQuery::new("john engineer").with_mode(SearchMode::Hybrid);
 
-        // Test hybrid mode
-        let query = SearchQuery::new()
-            .text("john engineer")
-            .mode(SearchMode::Hybrid);
-
-        let hits = engine.search(&query).await.unwrap();
-        assert!(!hits.is_empty());
+        let results = engine.search(&query, &entities).await.unwrap();
+        assert!(!results.is_empty());
     }
 }

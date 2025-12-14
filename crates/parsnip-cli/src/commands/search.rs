@@ -4,7 +4,7 @@ use clap::Args;
 
 use crate::{AppContext, Cli};
 use parsnip_core::{ProjectId, SearchMode, SearchQuery};
-use parsnip_search::{ExactSearchEngine, SearchEngine};
+use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
 use parsnip_storage::StorageBackend;
 
 #[derive(Args)]
@@ -104,9 +104,34 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         ctx.storage.get_all_entities(&project_id).await?
     };
 
-    // Perform search
-    let search_engine = ExactSearchEngine::new();
-    let results = search_engine.search(&query, &entities).await?;
+    // Perform search based on mode
+    let results = match query.mode {
+        SearchMode::Fuzzy => {
+            let search_engine = FuzzySearchEngine::new();
+            search_engine.search(&query, &entities).await?
+        }
+        #[cfg(feature = "fulltext")]
+        SearchMode::FullText | SearchMode::Hybrid => {
+            if let Some(ref fulltext) = ctx.fulltext {
+                use parsnip_search::SearchEngine;
+                fulltext.search(&query, &entities).await?
+            } else {
+                tracing::warn!("Full-text search not available, falling back to exact search");
+                let search_engine = ExactSearchEngine::new();
+                search_engine.search(&query, &entities).await?
+            }
+        }
+        #[cfg(not(feature = "fulltext"))]
+        SearchMode::FullText | SearchMode::Hybrid => {
+            tracing::warn!("Full-text search not enabled, falling back to exact search");
+            let search_engine = ExactSearchEngine::new();
+            search_engine.search(&query, &entities).await?
+        }
+        _ => {
+            let search_engine = ExactSearchEngine::new();
+            search_engine.search(&query, &entities).await?
+        }
+    };
 
     let display_results: Vec<_> = results.into_iter().take(args.limit).collect();
 

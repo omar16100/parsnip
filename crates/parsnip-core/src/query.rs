@@ -16,6 +16,8 @@ pub enum SearchMode {
     FullText,
     /// Hybrid: combines fuzzy and full-text
     Hybrid,
+    /// Vector/semantic search using embeddings
+    Vector,
 }
 
 /// Tag matching mode
@@ -100,6 +102,14 @@ pub struct SearchQuery {
     #[serde(default = "default_fuzzy_threshold")]
     pub fuzzy_threshold: f32,
 
+    /// Query embedding for vector search
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub query_embedding: Option<Vec<f32>>,
+
+    /// Similarity threshold for vector search (0.0-1.0, higher = stricter)
+    #[serde(default = "default_similarity_threshold")]
+    pub similarity_threshold: f32,
+
     /// Filter by entity types
     #[serde(default)]
     pub entity_types: Vec<String>,
@@ -127,6 +137,10 @@ pub struct SearchQuery {
 
 fn default_fuzzy_threshold() -> f32 {
     0.3
+}
+
+fn default_similarity_threshold() -> f32 {
+    0.7
 }
 
 fn default_true() -> bool {
@@ -161,6 +175,19 @@ impl SearchQuery {
     /// Set fuzzy threshold
     pub fn with_fuzzy_threshold(mut self, threshold: f32) -> Self {
         self.fuzzy_threshold = threshold.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Set query embedding for vector search
+    pub fn with_embedding(mut self, embedding: Vec<f32>) -> Self {
+        self.query_embedding = Some(embedding);
+        self.mode = SearchMode::Vector;
+        self
+    }
+
+    /// Set similarity threshold for vector search
+    pub fn with_similarity_threshold(mut self, threshold: f32) -> Self {
+        self.similarity_threshold = threshold.clamp(0.0, 1.0);
         self
     }
 

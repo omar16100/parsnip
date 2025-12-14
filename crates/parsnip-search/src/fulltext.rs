@@ -7,13 +7,13 @@ use tantivy::{
     collector::TopDocs,
     directory::MmapDirectory,
     query::QueryParser,
-    schema::{Schema, Field, STORED, TEXT, STRING},
-    Index, IndexReader, IndexWriter, Document, TantivyDocument,
+    schema::{Schema, Field, Value, STORED, TEXT, STRING},
+    Index, IndexReader, IndexWriter, TantivyDocument,
     ReloadPolicy,
 };
 
-use parsnip_core::{Entity, EntityId, ProjectId, SearchQuery};
-use crate::traits::{Result, SearchEngine, SearchError, SearchHit};
+use parsnip_core::{Entity, ProjectId, SearchQuery};
+use crate::traits::{Result, SearchEngine, SearchError};
 
 /// Full-text search engine using Tantivy
 pub struct FullTextSearchEngine {
@@ -122,15 +122,18 @@ impl FullTextSearchEngine {
 
 #[async_trait]
 impl SearchEngine for FullTextSearchEngine {
-    async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
+    async fn search(&self, query: &SearchQuery, entities: &[Entity]) -> Result<Vec<Entity>> {
         let text = match &query.text {
             Some(t) if !t.is_empty() => t,
             _ => return Ok(Vec::new()),
         };
 
+        // Rebuild index with provided entities for accurate search
+        self.rebuild_index(entities).await?;
+
         let searcher = self.reader.searcher();
         let query_parser = QueryParser::for_index(&self.index, vec![self.name_field, self.content_field]);
-        
+
         let parsed_query = query_parser
             .parse_query(text)
             .map_err(|e| SearchError::Query(e.to_string()))?;
@@ -140,56 +143,37 @@ impl SearchEngine for FullTextSearchEngine {
             .search(&parsed_query, &TopDocs::with_limit(limit))
             .map_err(|e| SearchError::Query(e.to_string()))?;
 
-        let mut hits = Vec::new();
-        for (score, doc_address) in top_docs {
+        // Collect matching entity names
+        let mut matching_names = std::collections::HashSet::new();
+        for (_score, doc_address) in top_docs {
             let doc: TantivyDocument = searcher.doc(doc_address)
                 .map_err(|e| SearchError::Internal(e.to_string()))?;
-            
-            let entity_id_str = doc
-                .get_first(self.entity_id_field)
-                .and_then(|v| v.as_str())
-                .unwrap_or_default();
-            
-            let project_id_str = doc
-                .get_first(self.project_id_field)
-                .and_then(|v| v.as_str())
-                .unwrap_or_default();
 
-            let name = doc
-                .get_first(self.name_field)
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string();
-
-            if let (Ok(entity_id), Ok(project_id)) = (
-                EntityId::from_string(entity_id_str),
-                ProjectId::from_string(project_id_str),
-            ) {
-                hits.push(SearchHit {
-                    entity_id,
-                    project_id,
-                    name,
-                    score,
-                });
+            if let Some(name) = doc.get_first(self.name_field).and_then(|v| v.as_str()) {
+                matching_names.insert(name.to_string());
             }
         }
 
-        Ok(hits)
+        // Return matching entities
+        Ok(entities.iter()
+            .filter(|e| matching_names.contains(&e.name))
+            .cloned()
+            .collect())
     }
 
-    async fn index_entity(&self, entity: &Entity) -> Result<()> {
+    async fn index_entity(&self, entity: &Entity, _project_id: &ProjectId) -> Result<()> {
         let doc = self.create_document(entity);
-        
+
         let mut writer = self.writer.write()
             .map_err(|e| SearchError::Internal(format!("Lock error: {}", e)))?;
-        
+
         // Delete existing document with same entity_id
         let term = tantivy::Term::from_field_text(self.entity_id_field, &entity.id.to_string());
         writer.delete_term(term);
-        
+
         writer.add_document(doc)
             .map_err(|e| SearchError::Index(e.to_string()))?;
-        
+
         writer.commit()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
@@ -199,13 +183,13 @@ impl SearchEngine for FullTextSearchEngine {
         Ok(())
     }
 
-    async fn remove_entity(&self, entity_id: &EntityId, _project_id: &ProjectId) -> Result<()> {
+    async fn remove_entity(&self, entity_name: &str, _project_id: &ProjectId) -> Result<()> {
         let mut writer = self.writer.write()
             .map_err(|e| SearchError::Internal(format!("Lock error: {}", e)))?;
-        
-        let term = tantivy::Term::from_field_text(self.entity_id_field, &entity_id.to_string());
+
+        let term = tantivy::Term::from_field_text(self.name_field, entity_name);
         writer.delete_term(term);
-        
+
         writer.commit()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
@@ -241,24 +225,20 @@ impl SearchEngine for FullTextSearchEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parsnip_core::NewEntity;
 
     #[tokio::test]
     async fn test_fulltext_search() {
         let engine = FullTextSearchEngine::in_memory().unwrap();
         let project_id = ProjectId::new();
 
-        let entity = NewEntity::new("John_Smith", "person")
-            .unwrap()
-            .with_observation("Senior engineer at Google working on distributed systems")
-            .build(project_id.clone());
+        let mut entity = parsnip_core::Entity::new(project_id.clone(), "John_Smith", "person");
+        entity.add_observation("Senior engineer at Google working on distributed systems");
 
-        engine.index_entity(&entity).await.unwrap();
+        let entities = vec![entity];
+        let query = SearchQuery::new("distributed systems");
+        let results = engine.search(&query, &entities).await.unwrap();
 
-        let query = SearchQuery::new().text("distributed systems");
-        let hits = engine.search(&query).await.unwrap();
-        
-        assert!(!hits.is_empty());
-        assert_eq!(hits[0].name, "John_Smith");
+        assert!(!results.is_empty());
+        assert_eq!(results[0].name, "John_Smith");
     }
 }

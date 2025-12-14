@@ -3,16 +3,24 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 mod commands;
 mod config;
 mod output;
 
-use commands::{entity, project, relation, search};
+use commands::{entity, io, project, relation, search};
 use parsnip_mcp::McpServer;
+
+#[cfg(feature = "redb")]
 use parsnip_storage::RedbStorage;
+
+#[cfg(feature = "sqlite")]
+use parsnip_storage::SqliteStorage;
+
+#[cfg(feature = "fulltext")]
+use parsnip_search::FullTextSearchEngine;
 
 #[derive(Parser)]
 #[command(name = "parsnip")]
@@ -66,13 +74,42 @@ pub enum Commands {
     Search(search::SearchArgs),
     /// Manage projects
     Project(project::ProjectArgs),
+    /// Import data from JSON file
+    Import(io::ImportArgs),
+    /// Export data to JSON file
+    Export(io::ExportArgs),
     /// Start MCP server
-    Serve,
+    Serve(ServeArgs),
 }
 
-/// Application context with storage backend
+/// Arguments for the serve command
+#[derive(Args)]
+pub struct ServeArgs {
+    /// Transport type: stdio or sse
+    #[arg(short, long, default_value = "stdio")]
+    pub transport: String,
+
+    /// Port for SSE transport (default: 3000)
+    #[arg(long, default_value = "3000")]
+    pub port: u16,
+
+    /// Host to bind for SSE transport
+    #[arg(long, default_value = "127.0.0.1")]
+    pub host: String,
+}
+
+// Storage type alias based on feature
+#[cfg(feature = "redb")]
+pub type Storage = RedbStorage;
+
+#[cfg(all(feature = "sqlite", not(feature = "redb")))]
+pub type Storage = SqliteStorage;
+
+/// Application context with storage and search backends
 pub struct AppContext {
-    pub storage: Arc<RedbStorage>,
+    pub storage: Arc<Storage>,
+    #[cfg(feature = "fulltext")]
+    pub fulltext: Option<Arc<FullTextSearchEngine>>,
 }
 
 impl AppContext {
@@ -80,13 +117,41 @@ impl AppContext {
         let data_dir = cli.data_dir();
         std::fs::create_dir_all(&data_dir)?;
 
-        let db_path = data_dir.join("parsnip.redb");
-        tracing::debug!("Using database at: {:?}", db_path);
+        #[cfg(feature = "redb")]
+        let storage = {
+            let db_path = data_dir.join("parsnip.redb");
+            tracing::debug!("Using ReDB database at: {:?}", db_path);
+            RedbStorage::open(&db_path)?
+        };
 
-        let storage = RedbStorage::open(&db_path)?;
+        #[cfg(all(feature = "sqlite", not(feature = "redb")))]
+        let storage = {
+            let db_path = data_dir.join("parsnip.sqlite");
+            tracing::debug!("Using SQLite database at: {:?}", db_path);
+            SqliteStorage::open(&db_path)?
+        };
+
+        // Initialize full-text search index
+        #[cfg(feature = "fulltext")]
+        let fulltext = {
+            let index_path = data_dir.join("index");
+            std::fs::create_dir_all(&index_path)?;
+            match FullTextSearchEngine::new(&index_path) {
+                Ok(engine) => {
+                    tracing::debug!("Full-text search index at: {:?}", index_path);
+                    Some(Arc::new(engine))
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to initialize full-text search: {}", e);
+                    None
+                }
+            }
+        };
 
         Ok(Self {
             storage: Arc::new(storage),
+            #[cfg(feature = "fulltext")]
+            fulltext,
         })
     }
 }
@@ -119,10 +184,26 @@ async fn main() -> anyhow::Result<()> {
         Commands::Relation(args) => relation::run(args, &cli, &ctx).await?,
         Commands::Search(args) => search::run(args, &cli, &ctx).await?,
         Commands::Project(args) => project::run(args, &cli, &ctx).await?,
-        Commands::Serve => {
-            tracing::info!("Starting MCP server on stdio...");
-            let server = McpServer::new(ctx.storage.clone());
-            server.run_stdio().await?;
+        Commands::Import(args) => io::run_import(args, &cli, &ctx).await?,
+        Commands::Export(args) => io::run_export(args, &cli, &ctx).await?,
+        Commands::Serve(args) => {
+            let server = Arc::new(McpServer::new(ctx.storage.clone()));
+            match args.transport.as_str() {
+                #[cfg(feature = "sse")]
+                "sse" | "http" => {
+                    let addr = format!("{}:{}", args.host, args.port);
+                    tracing::info!("Starting MCP server with SSE transport on {}", addr);
+                    parsnip_mcp::run_sse_server(server, &addr).await?;
+                }
+                #[cfg(not(feature = "sse"))]
+                "sse" | "http" => {
+                    anyhow::bail!("SSE transport not available. Rebuild with --features sse");
+                }
+                _ => {
+                    tracing::info!("Starting MCP server on stdio...");
+                    server.run_stdio().await?;
+                }
+            }
         }
     }
 

@@ -10,10 +10,17 @@ repository.workspace = true
 name = "parsnip"
 path = "src/main.rs"
 
+[features]
+default = ["redb", "fulltext"]
+redb = ["parsnip-storage/redb"]
+sqlite = ["parsnip-storage/sqlite"]
+fulltext = ["parsnip-search/fulltext"]
+sse = ["parsnip-mcp/sse"]
+
 [dependencies]
 parsnip-core = { workspace = true }
 parsnip-storage = { workspace = true }
-parsnip-search = { workspace = true }
+parsnip-search = { workspace = true, features = ["fuzzy"] }
 parsnip-mcp = { workspace = true }
 
 # CLI
