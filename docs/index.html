@@ -246,20 +246,13 @@
       padding: 24px;
       overflow-x: auto;
       position: relative;
+      cursor: pointer;
+      transition: border-color 0.3s, box-shadow 0.3s;
     }
 
-    .code-block::before {
-      content: 'claude_desktop_config.json';
-      position: absolute;
-      top: 0;
-      left: 16px;
-      transform: translateY(-50%);
-      background: var(--bg-deep);
-      padding: 0 8px;
-      font-size: 0.7rem;
-      color: var(--cream-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
+    .code-block:hover {
+      border-color: var(--amber);
+      box-shadow: 0 0 30px var(--amber-glow);
     }
 
     .code-block pre {
@@ -272,6 +265,58 @@
     .code-block .key { color: var(--amber); }
     .code-block .string { color: #8ecf9d; }
     .code-block .comment { color: var(--cream-dim); font-style: italic; }
+
+    .code-block .copy-hint {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-size: 0.7rem;
+      color: var(--cream-dim);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .code-block:hover .copy-hint {
+      opacity: 1;
+    }
+
+    /* ===== MCP TOOLS ===== */
+    .mcp-tools {
+      margin-top: 48px;
+    }
+
+    .mcp-tools h3 {
+      font-family: var(--serif);
+      font-size: 1.5rem;
+      color: var(--cream);
+      margin-bottom: 24px;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .tool-item {
+      background: var(--bg-deep);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+    }
+
+    .tool-item code {
+      color: var(--amber);
+      font-weight: 500;
+    }
+
+    .tool-item span {
+      color: var(--cream-dim);
+      font-size: 0.75rem;
+      display: block;
+      margin-top: 4px;
+    }
 
     /* ===== FEATURES ===== */
     .features-grid {
@@ -520,7 +565,8 @@
           <p>Add parsnip to your Claude Desktop configuration to give Claude persistent memory across conversations.</p>
           <p>Once configured, Claude can create entities, add observations, build relations, and search your knowledge graph.</p>
         </div>
-        <div class="code-block">
+        <div class="code-block" onclick="copyMcpConfig()">
+          <span class="copy-hint">click to copy</span>
           <pre><code>{
   <span class="key">"mcpServers"</span>: {
     <span class="key">"parsnip"</span>: {
@@ -529,6 +575,23 @@
     }
   }
 }</code></pre>
+        </div>
+      </div>
+      <div class="mcp-tools">
+        <h3>Available Tools</h3>
+        <div class="tools-grid">
+          <div class="tool-item"><code>search_knowledge</code><span>Search entities with fuzzy/fulltext</span></div>
+          <div class="tool-item"><code>create_entities</code><span>Create new entities with observations</span></div>
+          <div class="tool-item"><code>add_observations</code><span>Add facts to existing entities</span></div>
+          <div class="tool-item"><code>create_relations</code><span>Link entities with typed relations</span></div>
+          <div class="tool-item"><code>delete_entities</code><span>Remove entities from graph</span></div>
+          <div class="tool-item"><code>delete_observations</code><span>Remove specific observations</span></div>
+          <div class="tool-item"><code>delete_relations</code><span>Remove entity connections</span></div>
+          <div class="tool-item"><code>read_graph</code><span>Get full project graph</span></div>
+          <div class="tool-item"><code>open_nodes</code><span>Get specific entities by name</span></div>
+          <div class="tool-item"><code>add_tags</code><span>Tag entities for filtering</span></div>
+          <div class="tool-item"><code>remove_tags</code><span>Remove tags from entities</span></div>
+          <div class="tool-item"><code>traverse_graph</code><span>BFS/Dijkstra graph traversal</span></div>
         </div>
       </div>
     </div>
@@ -587,6 +650,26 @@
       btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8ecf9d" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
       setTimeout(() => {
         btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      }, 2000);
+    }
+
+    function copyMcpConfig() {
+      const config = `{
+  "mcpServers": {
+    "parsnip": {
+      "command": "parsnip",
+      "args": ["mcp"]
+    }
+  }
+}`;
+      navigator.clipboard.writeText(config);
+      const hint = document.querySelector('.code-block .copy-hint');
+      hint.textContent = 'copied!';
+      hint.style.opacity = '1';
+      hint.style.color = '#8ecf9d';
+      setTimeout(() => {
+        hint.textContent = 'click to copy';
+        hint.style.color = '';
       }, 2000);
     }
 
