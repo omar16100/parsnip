@@ -1,0 +1,37 @@
+[package]
+name = "parsnip-search"
+description = "Search engines for Parsnip memory management platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+parsnip-core = { workspace = true }
+
+# Search (optional)
+tantivy = { workspace = true, optional = true }
+nucleo = { workspace = true, optional = true }
+nucleo-matcher = { workspace = true, optional = true }
+
+# Async
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error Handling
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[features]
+default = ["fuzzy"]
+fuzzy = ["nucleo", "nucleo-matcher"]
+fulltext = ["tantivy"]
+
+[dev-dependencies]
+tempfile = { workspace = true }

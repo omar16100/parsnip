@@ -1,0 +1,31 @@
+[package]
+name = "parsnip-core"
+description = "Core graph engine for Parsnip memory management platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# IDs
+ulid = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Error Handling
+thiserror = { workspace = true }
+
+# Async
+async-trait = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }

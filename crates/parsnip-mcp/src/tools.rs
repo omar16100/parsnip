@@ -1,0 +1,226 @@
+//! MCP tool definitions
+
+use serde::Serialize;
+
+/// MCP tool definition
+#[derive(Debug, Serialize)]
+pub struct Tool {
+    pub name: &'static str,
+    pub description: &'static str,
+    #[serde(rename = "inputSchema")]
+    pub input_schema: serde_json::Value,
+}
+
+/// Get all available tools
+pub fn get_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "search_knowledge",
+            description: "Search entities by text or tags across projects. Omit project_id to search all projects.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search text"},
+                    "project_id": {"type": "string", "description": "Project identifier. Omit to search all projects."},
+                    "searchMode": {"type": "string", "enum": ["exact", "fuzzy"], "default": "exact"},
+                    "fuzzyThreshold": {"type": "number", "description": "Fuzzy threshold (0.0-1.0)", "default": 0.3},
+                    "exactTags": {"type": "array", "items": {"type": "string"}, "description": "Tags for exact-match filtering"},
+                    "page": {"type": "number", "description": "Page number (0-indexed)"},
+                    "pageSize": {"type": "number", "description": "Results per page (default: 100, max: 1000)"}
+                }
+            }),
+        },
+        Tool {
+            name: "create_entities",
+            description: "Create new entities with observations and optional tags. Use a single call for multiple entities.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["entities"],
+                "properties": {
+                    "project_id": {"type": "string", "description": "Project identifier (default: 'default')"},
+                    "entities": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["name", "entityType", "observations"],
+                            "properties": {
+                                "name": {"type": "string", "description": "Unique entity name"},
+                                "entityType": {"type": "string", "description": "Entity type (person, technology, project, company, concept, event, preference)"},
+                                "observations": {"type": "array", "items": {"type": "string"}, "description": "Factual statements about the entity"},
+                                "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional tags for categorization"}
+                            }
+                        }
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "add_observations",
+            description: "Add new observations to existing entities.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["observations"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "observations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["entityName", "observations"],
+                            "properties": {
+                                "entityName": {"type": "string", "description": "Exact name of existing entity"},
+                                "observations": {"type": "array", "items": {"type": "string"}, "description": "New factual statements to add"}
+                            }
+                        }
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "create_relations",
+            description: "Create directional relationships between existing entities.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["relations"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "relations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["from", "to", "relationType"],
+                            "properties": {
+                                "from": {"type": "string", "description": "Source entity name"},
+                                "to": {"type": "string", "description": "Target entity name"},
+                                "relationType": {"type": "string", "description": "Relationship type (e.g., works_at, manages, depends_on)"}
+                            }
+                        }
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "delete_entities",
+            description: "Permanently delete entities and all their relationships.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["entityNames"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "entityNames": {"type": "array", "items": {"type": "string"}, "description": "Entity names to delete"}
+                }
+            }),
+        },
+        Tool {
+            name: "delete_observations",
+            description: "Delete specific observations from entities while preserving the entity.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["deletions"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "deletions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["entityName", "observations"],
+                            "properties": {
+                                "entityName": {"type": "string"},
+                                "observations": {"type": "array", "items": {"type": "string"}, "description": "Exact observation strings to remove"}
+                            }
+                        }
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "delete_relations",
+            description: "Delete specific relationships between entities.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["relations"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "relations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["from", "to", "relationType"],
+                            "properties": {
+                                "from": {"type": "string"},
+                                "to": {"type": "string"},
+                                "relationType": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "read_graph",
+            description: "Retrieve the complete knowledge graph for a project.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "project_id": {"type": "string", "description": "Project identifier (default: 'default')"}
+                }
+            }),
+        },
+        Tool {
+            name: "open_nodes",
+            description: "Retrieve specific entities by exact names along with their relationships.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["names"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "names": {"type": "array", "items": {"type": "string"}, "description": "Exact entity names to retrieve"}
+                }
+            }),
+        },
+        Tool {
+            name: "add_tags",
+            description: "Add categorical tags to existing entities for filtering and organization.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["updates"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "updates": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["entityName", "tags"],
+                            "properties": {
+                                "entityName": {"type": "string"},
+                                "tags": {"type": "array", "items": {"type": "string"}}
+                            }
+                        }
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "remove_tags",
+            description: "Remove specific tags from entities.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "required": ["updates"],
+                "properties": {
+                    "project_id": {"type": "string"},
+                    "updates": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["entityName", "tags"],
+                            "properties": {
+                                "entityName": {"type": "string"},
+                                "tags": {"type": "array", "items": {"type": "string"}}
+                            }
+                        }
+                    }
+                }
+            }),
+        },
+    ]
+}

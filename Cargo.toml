@@ -1,0 +1,81 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/parsnip-core",
+    "crates/parsnip-storage",
+    "crates/parsnip-search",
+    "crates/parsnip-cli",
+    "crates/parsnip-mcp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/parsnip-ai/parsnip"
+homepage = "https://github.com/parsnip-ai/parsnip"
+authors = ["Parsnip Contributors"]
+
+[workspace.dependencies]
+# Internal crates
+parsnip-core = { path = "crates/parsnip-core" }
+parsnip-storage = { path = "crates/parsnip-storage" }
+parsnip-search = { path = "crates/parsnip-search" }
+parsnip-mcp = { path = "crates/parsnip-mcp" }
+
+# Async Runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Storage
+redb = "2.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Search
+tantivy = "0.22"
+nucleo = "0.5"
+nucleo-matcher = "0.3"
+
+# IDs
+ulid = { version = "1.1", features = ["serde"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error Handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Async
+async-trait = "0.1"
+futures = "0.3"
+
+# Testing
+tempfile = "3.13"
+assert_cmd = "2.0"
+predicates = "3.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+
+[profile.test]
+opt-level = 0

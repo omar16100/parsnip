@@ -1,0 +1,44 @@
+[package]
+name = "parsnip-cli"
+description = "CLI for Parsnip memory management platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "parsnip"
+path = "src/main.rs"
+
+[dependencies]
+parsnip-core = { workspace = true }
+parsnip-storage = { workspace = true }
+parsnip-search = { workspace = true }
+parsnip-mcp = { workspace = true }
+
+# CLI
+clap = { workspace = true }
+clap_complete = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+
+# Error Handling
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Utils
+dirs = "5.0"
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+tempfile = { workspace = true }
