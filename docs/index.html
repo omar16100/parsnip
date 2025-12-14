@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>parsnip — local-first memory graph</title>
   <meta name="description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Fast, private, portable.">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="parsnip — local-first memory graph">
+  <meta property="og:description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Fast, private, portable.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://omar16100.github.io/parsnip/">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="parsnip — local-first memory graph">
+  <meta name="twitter:description" content="A single-binary graph database for AI assistants. Store facts as entities and relations.">
+
+  <!-- Favicon (data URI - amber color) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥕</text></svg>">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -402,7 +417,6 @@
     /* ===== PERFORMANCE ===== */
     .perf-table {
       width: 100%;
-      max-width: 600px;
       border-collapse: collapse;
     }
 
@@ -591,7 +605,7 @@
     }
 
     .faq-list {
-      max-width: 800px;
+      max-width: 100%;
     }
 
     .faq-item {
@@ -613,6 +627,11 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      width: 100%;
+      background: transparent;
+      border: none;
+      text-align: left;
+      padding: 0;
     }
 
     .faq-question::after {
@@ -621,6 +640,8 @@
       font-size: 1.5rem;
       font-weight: 400;
       transition: transform 0.3s;
+      flex-shrink: 0;
+      margin-left: 16px;
     }
 
     .faq-item.open .faq-question::after {
@@ -679,13 +700,293 @@
       color: var(--cream-dim);
       font-size: 0.75rem;
     }
+
+    /* ===== ACCESSIBILITY ===== */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--amber);
+      color: var(--bg-deep);
+      padding: 12px 24px;
+      border-radius: 0 0 8px 8px;
+      font-weight: 500;
+      z-index: 9999;
+      transition: top 0.3s;
+    }
+
+    .skip-link:focus {
+      top: 0;
+      color: var(--bg-deep);
+    }
+
+    *:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px;
+    }
+
+    .install-tab:focus-visible,
+    .install-box:focus-visible,
+    .code-block:focus-visible,
+    .faq-question:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* ===== COPY ICON ===== */
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .copy-icon {
+      opacity: 0.6;
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+
+    .copy-btn:hover .copy-icon,
+    .install-box:hover .copy-icon,
+    .code-block:hover .copy-icon {
+      opacity: 1;
+    }
+
+    /* ===== STICKY NAV ===== */
+    .site-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(10, 10, 10, 0.9);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(232, 169, 76, 0.1);
+      padding: 12px 24px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      opacity: 0;
+      transform: translateY(-100%);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .site-nav.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .nav-logo {
+      font-family: var(--serif);
+      font-size: 1.4rem;
+      color: var(--cream);
+    }
+
+    .nav-logo span {
+      color: var(--amber);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .nav-links a {
+      color: var(--cream-dim);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* ===== BACK TO TOP ===== */
+    .back-to-top {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      width: 44px;
+      height: 44px;
+      background: var(--bg-card);
+      border: 1px solid rgba(232, 169, 76, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--amber);
+      cursor: pointer;
+      z-index: 99;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s, border-color 0.2s;
+      pointer-events: none;
+    }
+
+    .back-to-top.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .back-to-top:hover {
+      border-color: var(--amber);
+    }
+
+    /* ===== ARIA LIVE ===== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ===== MOBILE RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      .cli-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .mcp-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-links {
+        gap: 16px;
+      }
+
+      .nav-links a {
+        font-size: 0.7rem;
+      }
+
+      .cli-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .perf-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .perf-table::after {
+        content: '← scroll →';
+        display: block;
+        text-align: center;
+        font-size: 0.7rem;
+        color: var(--cream-dim);
+        padding: 8px 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .search-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .storage-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cli-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .back-to-top {
+        bottom: 20px;
+        right: 20px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .install-tabs {
+        flex-wrap: wrap;
+      }
+
+      .install-tab {
+        flex: 1 1 auto;
+        min-width: 80px;
+        text-align: center;
+      }
+
+      .install-box {
+        padding: 12px 16px;
+        font-size: 0.85rem;
+      }
+
+      .install-box code {
+        word-break: break-all;
+      }
+
+      .footer-links {
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      .search-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .usecase-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 40px 16px;
+      }
+
+      .hero-graph {
+        opacity: 0.3;
+      }
+
+      section {
+        padding: 60px 0;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- Skip Link -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Aria Live Region for announcements -->
+  <div id="live-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Sticky Nav (appears on scroll) -->
+  <nav class="site-nav" role="navigation" aria-label="Main navigation">
+    <a href="#" class="nav-logo">p<span>a</span>rsnip</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#mcp">MCP</a>
+      <a href="#cli">CLI</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/omar16100/parsnip" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </div>
+  </nav>
 
   <!-- Hero -->
-  <section class="hero">
-    <svg class="hero-graph" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+  <section class="hero" id="main-content">
+    <svg class="hero-graph" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>
         <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stop-color="#e8a94c" stop-opacity="0.8"/>
@@ -720,7 +1021,7 @@
     </svg>
 
     <div class="hero-content">
-      <a href="https://github.com/omar16100/parsnip" target="_blank" class="github-link" title="View on GitHub">
+      <a href="https://github.com/omar16100/parsnip" target="_blank" rel="noopener noreferrer" class="github-link" title="View on GitHub">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
         </svg>
@@ -728,23 +1029,26 @@
       <h1 class="logo">p<span>a</span>rsnip</h1>
       <p class="tagline">A local-first memory graph for AI assistants and knowledge workers</p>
       <div class="hero-install">
-        <div class="install-tabs">
-          <button class="install-tab active" onclick="switchTab('shell')">Shell</button>
-          <button class="install-tab" onclick="switchTab('cargo')">Cargo</button>
-          <button class="install-tab" onclick="switchTab('homebrew')">Homebrew</button>
+        <div class="install-tabs" role="tablist" aria-label="Installation methods">
+          <button class="install-tab active" role="tab" aria-selected="true" aria-controls="install-shell" id="tab-shell" tabindex="0">Shell</button>
+          <button class="install-tab" role="tab" aria-selected="false" aria-controls="install-cargo" id="tab-cargo" tabindex="-1">Cargo</button>
+          <button class="install-tab" role="tab" aria-selected="false" aria-controls="install-homebrew" id="tab-homebrew" tabindex="-1">Homebrew</button>
         </div>
-        <div id="install-shell" class="install-content active">
-          <div class="install-box" onclick="copyCommand('shell')">
+        <div id="install-shell" class="install-content active" role="tabpanel" aria-labelledby="tab-shell">
+          <div class="install-box" role="button" tabindex="0" aria-label="Copy shell install command">
+            <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
             <code>curl -fsSL parsnip.sh/install | sh</code>
           </div>
         </div>
-        <div id="install-cargo" class="install-content">
-          <div class="install-box" onclick="copyCommand('cargo')">
+        <div id="install-cargo" class="install-content" role="tabpanel" aria-labelledby="tab-cargo" hidden>
+          <div class="install-box" role="button" tabindex="0" aria-label="Copy cargo install command">
+            <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
             <code>cargo install parsnip-cli</code>
           </div>
         </div>
-        <div id="install-homebrew" class="install-content">
-          <div class="install-box" onclick="copyCommand('homebrew')">
+        <div id="install-homebrew" class="install-content" role="tabpanel" aria-labelledby="tab-homebrew" hidden>
+          <div class="install-box" role="button" tabindex="0" aria-label="Copy homebrew install command">
+            <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
             <code>brew install omar16100/tap/parsnip</code>
           </div>
         </div>
@@ -755,7 +1059,7 @@
   </section>
 
   <!-- Features -->
-  <section class="features-section">
+  <section class="features-section" id="features">
     <div class="container">
       <h2 class="section-title">Features</h2>
       <div class="features-grid">
@@ -787,14 +1091,14 @@
         <div class="feature-card">
           <div class="feature-icon">🤖</div>
           <h3>MCP Integration</h3>
-          <p>11 tools for AI assistants via Model Context Protocol. Works with Claude Desktop out of the box.</p>
+          <p>12 tools for AI assistants via Model Context Protocol. Works with Claude Desktop out of the box.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- MCP Setup -->
-  <section class="mcp-section">
+  <section class="mcp-section" id="mcp">
     <div class="container">
       <h2 class="section-title">MCP Setup</h2>
       <div class="mcp-grid">
@@ -802,13 +1106,13 @@
           <p>Add parsnip to your Claude Desktop configuration to give Claude persistent memory across conversations.</p>
           <p>Once configured, Claude can create entities, add observations, build relations, and search your knowledge graph.</p>
         </div>
-        <div class="code-block" onclick="copyMcpConfig()">
-          <span class="copy-hint">click to copy</span>
+        <div class="code-block" role="button" tabindex="0" aria-label="Copy MCP configuration">
+          <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="position:absolute;top:12px;right:12px;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           <pre><code>{
   <span class="key">"mcpServers"</span>: {
     <span class="key">"parsnip"</span>: {
       <span class="key">"command"</span>: <span class="string">"parsnip"</span>,
-      <span class="key">"args"</span>: [<span class="string">"mcp"</span>]
+      <span class="key">"args"</span>: [<span class="string">"serve"</span>]
     }
   }
 }</code></pre>
@@ -885,7 +1189,7 @@
   </section>
 
   <!-- CLI Reference -->
-  <section class="cli-section">
+  <section class="cli-section" id="cli">
     <div class="container">
       <h2 class="section-title">CLI Reference</h2>
       <div class="cli-grid">
@@ -1051,61 +1355,61 @@
   </section>
 
   <!-- FAQ -->
-  <section class="faq-section">
+  <section class="faq-section" id="faq">
     <div class="container">
       <h2 class="section-title">FAQ</h2>
       <div class="faq-list">
-        <div class="faq-item open">
-          <div class="faq-question" onclick="toggleFaq(this)">What is parsnip?</div>
-          <div class="faq-answer">
+        <div class="faq-item">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-1" id="faq-btn-1">What is parsnip?</button>
+          <div class="faq-answer" id="faq-1" role="region" aria-labelledby="faq-btn-1">
             <p>Parsnip is a single-binary graph database designed for AI assistants and knowledge workers. It stores durable facts as entities and relations, enabling fast retrieval through integrated search and graph traversal.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">How is data stored?</div>
-          <div class="faq-answer">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-2" id="faq-btn-2">How is data stored?</button>
+          <div class="faq-answer" id="faq-2" role="region" aria-labelledby="faq-btn-2">
             <p>Data is stored locally using ReDB (default) or SQLite. Everything stays on your machine—no cloud, no sync, no accounts. You can export to JSON for backup or migration.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">Can I use it with Claude or other AI assistants?</div>
-          <div class="faq-answer">
-            <p>Yes! Parsnip includes an MCP (Model Context Protocol) server with 11 tools. Add it to Claude Desktop config and Claude gains persistent memory that survives across conversations.</p>
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-3" id="faq-btn-3">Can I use it with Claude or other AI assistants?</button>
+          <div class="faq-answer" id="faq-3" role="region" aria-labelledby="faq-btn-3">
+            <p>Yes! Parsnip includes an MCP (Model Context Protocol) server with 12 tools. Add it to Claude Desktop config and Claude gains persistent memory that survives across conversations.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">How is this different from other knowledge tools?</div>
-          <div class="faq-answer">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-4" id="faq-btn-4">How is this different from other knowledge tools?</button>
+          <div class="faq-answer" id="faq-4" role="region" aria-labelledby="faq-btn-4">
             <p>Unlike cloud-based tools, parsnip is fully local and private. Unlike note apps, it uses graph semantics (entities + relations) for structured knowledge. Unlike vector databases, it supports cross-project search without mixing namespaces.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">How do I backup my data?</div>
-          <div class="faq-answer">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-5" id="faq-btn-5">How do I backup my data?</button>
+          <div class="faq-answer" id="faq-5" role="region" aria-labelledby="faq-btn-5">
             <p>Export to JSON: <code>parsnip export --all-projects -o backup.json</code>. This creates a complete backup of all projects, entities, relations, and observations.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">Can I use SQLite instead of ReDB?</div>
-          <div class="faq-answer">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-6" id="faq-btn-6">Can I use SQLite instead of ReDB?</button>
+          <div class="faq-answer" id="faq-6" role="region" aria-labelledby="faq-btn-6">
             <p>Yes! Build with the sqlite feature flag: <code>cargo install parsnip --features sqlite</code>. SQLite is compatible with standard SQL tools for inspection.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">How do I find paths between entities?</div>
-          <div class="faq-answer">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-7" id="faq-btn-7">How do I find paths between entities?</button>
+          <div class="faq-answer" id="faq-7" role="region" aria-labelledby="faq-btn-7">
             <p>Use path finding: <code>parsnip relation find-path Alice Carol</code>. Add <code>--weighted</code> for Dijkstra shortest path, or filter with <code>--relation-types</code>.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">What's the difference between search modes?</div>
-          <div class="faq-answer">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-8" id="faq-btn-8">What's the difference between search modes?</button>
+          <div class="faq-answer" id="faq-8" role="region" aria-labelledby="faq-btn-8">
             <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant with Levenshtein distance. <strong>Fulltext</strong>: BM25 relevance ranking. <strong>Hybrid</strong>: combines fuzzy + fulltext. <strong>Vector</strong>: semantic similarity with embeddings.</p>
           </div>
         </div>
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">How do I traverse the graph?</div>
-          <div class="faq-answer">
+          <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-9" id="faq-btn-9">How do I traverse the graph?</button>
+          <div class="faq-answer" id="faq-9" role="region" aria-labelledby="faq-btn-9">
             <p>Use <code>parsnip relation traverse EntityName</code> with options: <code>-d 3</code> for depth, <code>--direction outgoing</code>, or filter with <code>--entity-types person</code> and <code>--relation-types works_at</code>.</p>
           </div>
         </div>
@@ -1118,69 +1422,185 @@
     <div class="container">
       <div class="footer-logo">p<span>a</span>rsnip</div>
       <div class="footer-links">
-        <a href="https://github.com/omar16100/parsnip" target="_blank">GitHub</a>
-        <a href="https://github.com/omar16100/parsnip#readme" target="_blank">Docs</a>
-        <a href="https://github.com/omar16100/parsnip/issues" target="_blank">Issues</a>
+        <a href="https://github.com/omar16100/parsnip" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/omar16100/parsnip#readme" target="_blank" rel="noopener noreferrer">Docs</a>
+        <a href="https://github.com/omar16100/parsnip/issues" target="_blank" rel="noopener noreferrer">Issues</a>
       </div>
       <p class="footer-copy">MIT / Apache-2.0 · Built with Rust</p>
     </div>
   </footer>
 
+  <!-- Back to Top Button -->
+  <button class="back-to-top" aria-label="Back to top" title="Back to top">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M12 19V5M5 12l7-7 7 7"/>
+    </svg>
+  </button>
+
   <script>
+    // ===== Configuration =====
     const installCommands = {
       shell: 'curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh',
       cargo: 'cargo install parsnip-cli',
       homebrew: 'brew install omar16100/tap/parsnip'
     };
 
-    function switchTab(tab) {
-      // Update tabs
-      document.querySelectorAll('.install-tab').forEach(t => t.classList.remove('active'));
-      document.querySelector(`.install-tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-
-      // Update content
-      document.querySelectorAll('.install-content').forEach(c => c.classList.remove('active'));
-      document.getElementById(`install-${tab}`).classList.add('active');
-    }
-
-    function copyCommand(tab) {
-      navigator.clipboard.writeText(installCommands[tab]);
-      const hint = document.querySelector(`#install-${tab} .copy-hint`);
-      hint.textContent = 'copied!';
-      hint.style.opacity = '1';
-      hint.style.color = '#8ecf9d';
-      setTimeout(() => {
-        hint.textContent = 'click to copy';
-        hint.style.color = '';
-      }, 2000);
-    }
-
-    function copyMcpConfig() {
-      const config = `{
+    const mcpConfig = `{
   "mcpServers": {
     "parsnip": {
       "command": "parsnip",
-      "args": ["mcp"]
+      "args": ["serve"]
     }
   }
 }`;
-      navigator.clipboard.writeText(config);
-      const hint = document.querySelector('.code-block .copy-hint');
-      hint.textContent = 'copied!';
-      hint.style.opacity = '1';
-      hint.style.color = '#8ecf9d';
-      setTimeout(() => {
-        hint.textContent = 'click to copy';
-        hint.style.color = '';
-      }, 2000);
+
+    // ===== Utility: Announce to screen readers =====
+    function announce(message) {
+      const liveRegion = document.getElementById('live-region');
+      liveRegion.textContent = message;
+      setTimeout(() => { liveRegion.textContent = ''; }, 1000);
     }
 
-    function toggleFaq(el) {
-      const item = el.parentElement;
+    // ===== Tab Navigation =====
+    const tabs = document.querySelectorAll('.install-tab');
+    const tabPanels = document.querySelectorAll('.install-content');
+    const tabNames = ['shell', 'cargo', 'homebrew'];
+
+    function switchTab(index) {
+      tabs.forEach((tab, i) => {
+        const isSelected = i === index;
+        tab.classList.toggle('active', isSelected);
+        tab.setAttribute('aria-selected', isSelected);
+        tab.setAttribute('tabindex', isSelected ? '0' : '-1');
+      });
+      tabPanels.forEach((panel, i) => {
+        const isActive = i === index;
+        panel.classList.toggle('active', isActive);
+        panel.hidden = !isActive;
+      });
+    }
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => switchTab(index));
+      tab.addEventListener('keydown', (e) => {
+        let newIndex = index;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          newIndex = (index + 1) % tabs.length;
+          e.preventDefault();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          newIndex = (index - 1 + tabs.length) % tabs.length;
+          e.preventDefault();
+        } else if (e.key === 'Home') {
+          newIndex = 0;
+          e.preventDefault();
+        } else if (e.key === 'End') {
+          newIndex = tabs.length - 1;
+          e.preventDefault();
+        }
+        if (newIndex !== index) {
+          switchTab(newIndex);
+          tabs[newIndex].focus();
+        }
+      });
+    });
+
+    // ===== Copy Commands =====
+    function copyToClipboard(text, element, successMessage) {
+      navigator.clipboard.writeText(text).then(() => {
+        announce(successMessage || 'Copied to clipboard');
+        showCopyFeedback(element);
+      }).catch(() => {
+        announce('Failed to copy');
+      });
+    }
+
+    function showCopyFeedback(element) {
+      const icon = element.querySelector('.copy-icon');
+      if (icon) {
+        // Change to checkmark
+        icon.innerHTML = '<path d="M20 6L9 17l-5-5"/>';
+        icon.style.color = '#8ecf9d';
+        setTimeout(() => {
+          icon.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>';
+          icon.style.color = '';
+        }, 1500);
+      }
+    }
+
+    // Install box copy handlers
+    document.querySelectorAll('.install-box').forEach((box, index) => {
+      const handler = (e) => {
+        if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          copyToClipboard(installCommands[tabNames[index]], box, 'Install command copied');
+        }
+      };
+      box.addEventListener('click', handler);
+      box.addEventListener('keydown', handler);
+    });
+
+    // MCP config copy handler
+    const mcpBlock = document.querySelector('.code-block');
+    if (mcpBlock) {
+      const handler = (e) => {
+        if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          copyToClipboard(mcpConfig, mcpBlock, 'MCP configuration copied');
+        }
+      };
+      mcpBlock.addEventListener('click', handler);
+      mcpBlock.addEventListener('keydown', handler);
+    }
+
+    // ===== FAQ Accordion =====
+    document.querySelectorAll('.faq-question').forEach(btn => {
+      btn.addEventListener('click', () => toggleFaqItem(btn));
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleFaqItem(btn);
+        }
+      });
+    });
+
+    function toggleFaqItem(btn) {
+      const item = btn.parentElement;
+      const isOpen = item.classList.contains('open');
       item.classList.toggle('open');
+      btn.setAttribute('aria-expanded', !isOpen);
     }
 
-    // Animate connections
+    // ===== Sticky Nav & Back to Top =====
+    const nav = document.querySelector('.site-nav');
+    const backToTop = document.querySelector('.back-to-top');
+    const hero = document.querySelector('.hero');
+
+    function handleScroll() {
+      const scrollY = window.scrollY;
+      const heroHeight = hero?.offsetHeight || 500;
+
+      // Show nav after scrolling past hero
+      if (nav) {
+        nav.classList.toggle('visible', scrollY > heroHeight - 100);
+      }
+
+      // Show back-to-top after scrolling down
+      if (backToTop) {
+        backToTop.classList.toggle('visible', scrollY > 400);
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial check
+
+    // Back to top click handler
+    if (backToTop) {
+      backToTop.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+
+    // ===== Animate SVG Connections =====
     document.querySelectorAll('.conn').forEach(path => {
       const length = path.getTotalLength();
       path.style.strokeDasharray = length;

@@ -1,9 +1,11 @@
 //! Search commands
 
+use std::collections::{HashMap, HashSet};
+
 use clap::Args;
 
 use crate::{AppContext, Cli};
-use parsnip_core::{ProjectId, SearchMode, SearchQuery};
+use parsnip_core::{ProjectId, Relation, SearchMode, SearchQuery};
 use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
 use parsnip_storage::StorageBackend;
 
@@ -166,6 +168,38 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
             );
         }
 
+        // Pre-fetch relations once per project to avoid N+1 queries
+        let all_relations: Vec<Relation> = if args.include_relations {
+            // Collect unique project IDs
+            let project_ids: HashSet<&ProjectId> =
+                display_results.iter().map(|e| &e.project_id).collect();
+
+            // Fetch all relations for each project
+            let mut rels = Vec::new();
+            for project_id in project_ids {
+                if let Ok(r) = ctx.storage.get_all_relations(project_id).await {
+                    rels.extend(r);
+                }
+            }
+            rels
+        } else {
+            Vec::new()
+        };
+
+        // Index relations by (project_id, entity_name) to avoid cross-project mixing
+        let mut relations_by_project: HashMap<ProjectId, HashMap<&str, Vec<&Relation>>> =
+            HashMap::new();
+        for rel in &all_relations {
+            let by_entity = relations_by_project
+                .entry(rel.project_id.clone())
+                .or_default();
+            by_entity
+                .entry(rel.from_name.as_str())
+                .or_default()
+                .push(rel);
+            by_entity.entry(rel.to_name.as_str()).or_default().push(rel);
+        }
+
         for entity in &display_results {
             let tags = if entity.tags.is_empty() {
                 String::new()
@@ -175,14 +209,9 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
             println!("  {} ({}){}", entity.name, entity.entity_type.0, tags);
 
             if args.include_relations {
-                let project_id = &entity.project_id;
-                if let Ok(relations) = ctx.storage.get_all_relations(project_id).await {
-                    let related: Vec<_> = relations
-                        .iter()
-                        .filter(|r| r.from_name == entity.name || r.to_name == entity.name)
-                        .collect();
-                    if !related.is_empty() {
-                        for rel in related {
+                if let Some(by_entity) = relations_by_project.get(&entity.project_id) {
+                    if let Some(relations) = by_entity.get(entity.name.as_str()) {
+                        for rel in relations {
                             if rel.from_name == entity.name {
                                 println!("    -> {} ({})", rel.to_name, rel.relation_type);
                             } else {

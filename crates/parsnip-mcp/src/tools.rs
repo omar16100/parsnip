@@ -16,12 +16,12 @@ pub fn get_tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "search_knowledge",
-            description: "Search entities by text or tags across projects. Omit project_id to search all projects.",
+            description: "Search entities by text or tags across projects. Omit projectId to search all projects.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search text"},
-                    "projectId": {"type": "string", "description": "Project identifier. Omit to search all projects."},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default'). Omit to search all projects."},
                     "searchMode": {"type": "string", "enum": ["exact", "fuzzy"], "default": "exact"},
                     "fuzzyThreshold": {"type": "number", "description": "Fuzzy threshold (0.0-1.0)", "default": 0.3},
                     "exactTags": {"type": "array", "items": {"type": "string"}, "description": "Tags for exact-match filtering"},
@@ -37,7 +37,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["entities"],
                 "properties": {
-                    "projectId": {"type": "string", "description": "Project identifier (default: 'default')"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "entities": {
                         "type": "array",
                         "items": {
@@ -61,7 +61,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["observations"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "observations": {
                         "type": "array",
                         "items": {
@@ -78,12 +78,12 @@ pub fn get_tools() -> Vec<Tool> {
         },
         Tool {
             name: "create_relations",
-            description: "Create directional relationships between existing entities.",
+            description: "Create directional relationships between entities. Supports cross-project relations by specifying fromProjectId/toProjectId.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "required": ["relations"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Default project for entities (default: 'default')"},
                     "relations": {
                         "type": "array",
                         "items": {
@@ -91,7 +91,9 @@ pub fn get_tools() -> Vec<Tool> {
                             "required": ["from", "to", "relationType"],
                             "properties": {
                                 "from": {"type": "string", "description": "Source entity name"},
+                                "fromProjectId": {"type": "string", "description": "Project containing the source entity (optional, auto-detected if unique)"},
                                 "to": {"type": "string", "description": "Target entity name"},
+                                "toProjectId": {"type": "string", "description": "Project containing the target entity (optional, auto-detected if unique)"},
                                 "relationType": {"type": "string", "description": "Relationship type (e.g., works_at, manages, depends_on)"}
                             }
                         }
@@ -106,7 +108,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["entityNames"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "entityNames": {"type": "array", "items": {"type": "string"}, "description": "Entity names to delete"}
                 }
             }),
@@ -118,7 +120,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["deletions"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "deletions": {
                         "type": "array",
                         "items": {
@@ -140,7 +142,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["relations"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "relations": {
                         "type": "array",
                         "items": {
@@ -173,7 +175,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["names"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "names": {"type": "array", "items": {"type": "string"}, "description": "Exact entity names to retrieve"}
                 }
             }),
@@ -185,7 +187,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["updates"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "updates": {
                         "type": "array",
                         "items": {
@@ -207,7 +209,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["updates"],
                 "properties": {
-                    "projectId": {"type": "string"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "updates": {
                         "type": "array",
                         "items": {
@@ -229,7 +231,7 @@ pub fn get_tools() -> Vec<Tool> {
                 "type": "object",
                 "required": ["start"],
                 "properties": {
-                    "projectId": {"type": "string", "description": "Project identifier (default: 'default')"},
+                    "projectId": {"type": "string", "description": "Project name for data isolation (default: 'default')"},
                     "start": {"type": "string", "description": "Starting entity name"},
                     "target": {"type": "string", "description": "Target entity name for path finding (optional)"},
                     "maxDepth": {"type": "number", "description": "Maximum traversal depth (default: 10)", "default": 10},

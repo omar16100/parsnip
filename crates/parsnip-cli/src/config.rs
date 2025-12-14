@@ -167,9 +167,11 @@ mod tests {
 
     #[test]
     fn test_toml_roundtrip() {
-        let mut config = Config::default();
-        config.default_project = "myproject".to_string();
-        config.log_level = "debug".to_string();
+        let config = Config {
+            default_project: "myproject".to_string(),
+            log_level: "debug".to_string(),
+            ..Default::default()
+        };
 
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let loaded: Config = toml::from_str(&toml_str).unwrap();

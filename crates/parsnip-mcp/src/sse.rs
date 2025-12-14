@@ -7,10 +7,13 @@ use std::sync::Arc;
 
 #[cfg(feature = "sse")]
 use axum::{
+    body::Body,
     extract::State,
+    http::{header, HeaderMap, Method, Request, StatusCode},
+    middleware::{self, Next},
     response::{
         sse::{Event, Sse},
-        IntoResponse,
+        IntoResponse, Response,
     },
     routing::{get, post},
     Json, Router,
@@ -26,7 +29,10 @@ use parsnip_storage::StorageBackend;
 use tokio::sync::broadcast;
 
 #[cfg(feature = "sse")]
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
+
+#[cfg(feature = "sse")]
+use tower_http::limit::RequestBodyLimitLayer;
 
 #[cfg(feature = "sse")]
 use crate::transport::JsonRpcRequest;
@@ -34,18 +40,67 @@ use crate::transport::JsonRpcRequest;
 #[cfg(feature = "sse")]
 use crate::McpServer;
 
+/// Maximum request body size (1MB)
+#[cfg(feature = "sse")]
+const MAX_BODY_SIZE: usize = 1024 * 1024;
+
 /// SSE transport state
 #[cfg(feature = "sse")]
 pub struct SseState<S: StorageBackend> {
     server: Arc<McpServer<S>>,
     event_tx: broadcast::Sender<String>,
+    auth_token: Option<String>,
 }
 
 #[cfg(feature = "sse")]
 impl<S: StorageBackend + Send + Sync + 'static> SseState<S> {
-    pub fn new(server: Arc<McpServer<S>>) -> Self {
+    pub fn new(server: Arc<McpServer<S>>, auth_token: Option<String>) -> Self {
         let (event_tx, _) = broadcast::channel(100);
-        Self { server, event_tx }
+        Self {
+            server,
+            event_tx,
+            auth_token,
+        }
+    }
+}
+
+/// Auth middleware - validates Bearer token if configured
+#[cfg(feature = "sse")]
+async fn auth_middleware<S: StorageBackend + Send + Sync + 'static>(
+    State(state): State<Arc<SseState<S>>>,
+    headers: HeaderMap,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    // Skip auth for health endpoint
+    if request.uri().path() == "/health" {
+        return next.run(request).await;
+    }
+
+    // If no auth token configured, allow all requests (localhost mode)
+    let Some(expected_token) = &state.auth_token else {
+        return next.run(request).await;
+    };
+
+    // Check Authorization header
+    let auth_header = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok());
+
+    match auth_header {
+        Some(auth) if auth.starts_with("Bearer ") => {
+            let token = &auth[7..];
+            if token == expected_token {
+                next.run(request).await
+            } else {
+                (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
+            }
+        }
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            "Missing or invalid Authorization header",
+        )
+            .into_response(),
     }
 }
 
@@ -53,20 +108,32 @@ impl<S: StorageBackend + Send + Sync + 'static> SseState<S> {
 #[cfg(feature = "sse")]
 pub fn create_sse_router<S: StorageBackend + Send + Sync + 'static>(
     server: Arc<McpServer<S>>,
+    auth_token: Option<String>,
 ) -> Router {
-    let state = Arc::new(SseState::new(server));
+    let state = Arc::new(SseState::new(server, auth_token));
 
+    // Restrictive CORS: only allow localhost origins
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin([
+            "http://localhost:3000".parse().unwrap(),
+            "http://127.0.0.1:3000".parse().unwrap(),
+            "http://localhost:8080".parse().unwrap(),
+            "http://127.0.0.1:8080".parse().unwrap(),
+        ])
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
 
     Router::new()
         .route("/sse", get(sse_handler::<S>))
         .route("/message", post(message_handler::<S>))
         .route("/health", get(health_handler))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware::<S>,
+        ))
         .with_state(state)
         .layer(cors)
+        .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
 }
 
 /// Health check endpoint
@@ -145,8 +212,9 @@ async fn message_handler<S: StorageBackend + Send + Sync + 'static>(
 pub async fn run_sse_server<S: StorageBackend + Send + Sync + 'static>(
     server: Arc<McpServer<S>>,
     addr: &str,
+    auth_token: Option<String>,
 ) -> anyhow::Result<()> {
-    let router = create_sse_router(server);
+    let router = create_sse_router(server, auth_token);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!("MCP SSE server listening on {}", addr);

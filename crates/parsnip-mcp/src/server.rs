@@ -3,7 +3,9 @@
 use std::sync::Arc;
 
 use parsnip_core::{
-    Direction, Entity, Project, Relation, SearchMode, SearchQuery, TraversalEngine, TraversalQuery,
+    validate_batch_entities, validate_batch_relations, validate_entity_name, validate_observation,
+    validate_project_name, validate_tag, validate_traversal_depth, Direction, Entity, Project,
+    Relation, SearchMode, SearchQuery, TraversalEngine, TraversalQuery, MAX_TRAVERSAL_DEPTH,
 };
 #[cfg(feature = "fulltext")]
 use parsnip_search::FullTextSearchEngine;
@@ -33,8 +35,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
     pub async fn run_stdio(&self) -> anyhow::Result<()> {
         tracing::info!("Starting MCP server on stdio");
 
+        // Keep one BufReader alive for entire session to avoid losing buffered data
+        let mut transport = StdioTransport::new();
+
         loop {
-            match StdioTransport::read_request().await {
+            match transport.read_request().await {
                 Ok(Some(request)) => {
                     tracing::debug!("Received request: {:?}", request.method);
                     let response = self.handle_request(request).await;
@@ -287,7 +292,18 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             Err(e) => return ToolCallResponse::error(format!("Invalid arguments: {}", e)),
         };
 
+        // Validate batch size
+        if let Err(e) = validate_batch_entities(args.entities.len()) {
+            return ToolCallResponse::error(e.to_string());
+        }
+
         let project_name = args.project_id.as_deref().unwrap_or("default");
+
+        // Validate project name
+        if let Err(e) = validate_project_name(project_name) {
+            return ToolCallResponse::error(e.to_string());
+        }
+
         let project = match self.get_or_create_project(project_name).await {
             Ok(p) => p,
             Err(e) => return ToolCallResponse::error(format!("Project error: {}", e)),
@@ -295,6 +311,25 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut created = 0;
         for input in args.entities {
+            // Validate entity name
+            if let Err(e) = validate_entity_name(&input.name) {
+                return ToolCallResponse::error(e.to_string());
+            }
+
+            // Validate observations
+            for obs in &input.observations {
+                if let Err(e) = validate_observation(obs) {
+                    return ToolCallResponse::error(e.to_string());
+                }
+            }
+
+            // Validate tags
+            for tag in &input.tags {
+                if let Err(e) = validate_tag(tag) {
+                    return ToolCallResponse::error(e.to_string());
+                }
+            }
+
             let mut entity =
                 Entity::new(project.id.clone(), &input.name, input.entity_type.as_str());
             for obs in input.observations {
@@ -389,6 +424,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             Err(e) => return ToolCallResponse::error(format!("Invalid arguments: {}", e)),
         };
 
+        // Validate batch size
+        if let Err(e) = validate_batch_relations(args.relations.len()) {
+            return ToolCallResponse::error(e.to_string());
+        }
+
         let project_name = args.project_id.as_deref().unwrap_or("default");
         let project = match self.get_or_create_project(project_name).await {
             Ok(p) => p,
@@ -397,6 +437,14 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut created = 0;
         for input in args.relations {
+            // Validate entity names
+            if let Err(e) = validate_entity_name(&input.from) {
+                return ToolCallResponse::error(e.to_string());
+            }
+            if let Err(e) = validate_entity_name(&input.to) {
+                return ToolCallResponse::error(e.to_string());
+            }
+
             let relation = Relation::from_names(
                 project.id.clone(),
                 &input.from,
@@ -756,6 +804,19 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             Err(e) => return ToolCallResponse::error(format!("Invalid arguments: {}", e)),
         };
 
+        // Validate traversal depth (cap at MAX_TRAVERSAL_DEPTH)
+        let depth = args.max_depth.unwrap_or(10).min(MAX_TRAVERSAL_DEPTH);
+        if let Some(requested) = args.max_depth {
+            if let Err(e) = validate_traversal_depth(requested) {
+                tracing::warn!(
+                    "Depth {} exceeds max, capping at {}: {}",
+                    requested,
+                    MAX_TRAVERSAL_DEPTH,
+                    e
+                );
+            }
+        }
+
         let project_name = args.project_id.as_deref().unwrap_or("default");
         let project = match self.get_or_create_project(project_name).await {
             Ok(p) => p,
@@ -794,7 +855,7 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
         };
 
         let mut query = TraversalQuery::new(&args.start)
-            .with_depth(args.max_depth.unwrap_or(10))
+            .with_depth(depth)
             .with_direction(direction);
 
         if let Some(target) = args.target {

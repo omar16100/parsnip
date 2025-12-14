@@ -207,6 +207,40 @@ impl PartialOrd for DijkstraState {
     }
 }
 
+/// Adjacency map for O(1) neighbor lookups
+struct AdjacencyMap<'a> {
+    outgoing: HashMap<&'a str, Vec<&'a Relation>>,
+    incoming: HashMap<&'a str, Vec<&'a Relation>>,
+}
+
+impl<'a> AdjacencyMap<'a> {
+    fn build(relations: &'a [Relation]) -> Self {
+        let mut outgoing: HashMap<&'a str, Vec<&'a Relation>> = HashMap::new();
+        let mut incoming: HashMap<&'a str, Vec<&'a Relation>> = HashMap::new();
+
+        for rel in relations {
+            outgoing.entry(&rel.from_name).or_default().push(rel);
+            incoming.entry(&rel.to_name).or_default().push(rel);
+        }
+
+        Self { outgoing, incoming }
+    }
+
+    fn get_neighbors(&self, node: &str, direction: &Direction) -> Vec<&'a Relation> {
+        match direction {
+            Direction::Outgoing => self.outgoing.get(node).cloned().unwrap_or_default(),
+            Direction::Incoming => self.incoming.get(node).cloned().unwrap_or_default(),
+            Direction::Both => {
+                let mut result = self.outgoing.get(node).cloned().unwrap_or_default();
+                if let Some(inc) = self.incoming.get(node) {
+                    result.extend(inc.iter().copied());
+                }
+                result
+            }
+        }
+    }
+}
+
 /// Graph traversal engine
 pub struct TraversalEngine;
 
@@ -225,14 +259,17 @@ impl TraversalEngine {
             query.direction
         );
 
+        // Build adjacency map once for O(1) neighbor lookups
+        let adj = AdjacencyMap::build(relations);
+
         if query.target.is_some() {
             if query.use_weights {
-                Self::dijkstra_path(query, entities, relations)
+                Self::dijkstra_path(query, entities, relations, &adj)
             } else {
-                Self::bfs_path(query, entities, relations)
+                Self::bfs_path(query, entities, relations, &adj)
             }
         } else {
-            Self::filtered_bfs(query, entities, relations)
+            Self::filtered_bfs(query, entities, relations, &adj)
         }
     }
 
@@ -241,6 +278,7 @@ impl TraversalEngine {
         query: &TraversalQuery,
         entities: &HashMap<String, Entity>,
         relations: &[Relation],
+        adj: &AdjacencyMap,
     ) -> TraversalResult {
         let target = query.target.as_ref().unwrap();
         let mut visited: HashSet<String> = HashSet::new();
@@ -265,7 +303,7 @@ impl TraversalEngine {
                 continue;
             }
 
-            for rel in Self::get_neighbors(&current, &query.direction, relations) {
+            for rel in adj.get_neighbors(&current, &query.direction) {
                 stats.edges_traversed += 1;
 
                 // Apply relation type filter
@@ -324,6 +362,7 @@ impl TraversalEngine {
         query: &TraversalQuery,
         entities: &HashMap<String, Entity>,
         relations: &[Relation],
+        adj: &AdjacencyMap,
     ) -> TraversalResult {
         let target = query.target.as_ref().unwrap();
         let mut dist: HashMap<String, f64> = HashMap::new();
@@ -351,7 +390,7 @@ impl TraversalEngine {
                 continue;
             }
 
-            for rel in Self::get_neighbors(&node, &query.direction, relations) {
+            for rel in adj.get_neighbors(&node, &query.direction) {
                 stats.edges_traversed += 1;
 
                 // Apply relation type filter
@@ -416,6 +455,7 @@ impl TraversalEngine {
         query: &TraversalQuery,
         entities: &HashMap<String, Entity>,
         relations: &[Relation],
+        adj: &AdjacencyMap,
     ) -> TraversalResult {
         let mut visited: HashSet<String> = HashSet::new();
         let mut queue: VecDeque<(String, u32)> = VecDeque::new();
@@ -432,7 +472,7 @@ impl TraversalEngine {
                 continue;
             }
 
-            for rel in Self::get_neighbors(&current, &query.direction, relations) {
+            for rel in adj.get_neighbors(&current, &query.direction) {
                 stats.edges_traversed += 1;
 
                 // Apply relation type filter
@@ -471,22 +511,6 @@ impl TraversalEngine {
         );
 
         Self::build_result(query, vec![], &visited, entities, relations, stats)
-    }
-
-    /// Get neighboring relations for a node based on direction
-    fn get_neighbors<'a>(
-        node: &str,
-        direction: &Direction,
-        relations: &'a [Relation],
-    ) -> Vec<&'a Relation> {
-        relations
-            .iter()
-            .filter(|rel| match direction {
-                Direction::Outgoing => rel.from_name == node,
-                Direction::Incoming => rel.to_name == node,
-                Direction::Both => rel.from_name == node || rel.to_name == node,
-            })
-            .collect()
     }
 
     /// Reconstruct path from parent map

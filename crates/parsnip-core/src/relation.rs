@@ -45,7 +45,7 @@ pub struct Relation {
     /// Unique identifier
     pub id: RelationId,
 
-    /// Project this relation belongs to
+    /// Project this relation belongs to (for storage organization)
     pub project_id: ProjectId,
 
     /// Source entity ID
@@ -54,11 +54,19 @@ pub struct Relation {
     /// Source entity name (for convenience)
     pub from_name: String,
 
+    /// Source entity's project (for cross-project relations)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_project_id: Option<ProjectId>,
+
     /// Target entity ID
     pub to_id: EntityId,
 
     /// Target entity name (for convenience)
     pub to_name: String,
+
+    /// Target entity's project (for cross-project relations)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_project_id: Option<ProjectId>,
 
     /// Type of relationship (e.g., "works_at", "mentors")
     pub relation_type: String,
@@ -76,7 +84,7 @@ pub struct Relation {
 }
 
 impl Relation {
-    /// Create a new relation with entity IDs
+    /// Create a new relation with entity IDs (same project)
     pub fn new(
         project_id: ProjectId,
         from_id: EntityId,
@@ -90,8 +98,37 @@ impl Relation {
             project_id,
             from_id,
             from_name: from_name.into(),
+            from_project_id: None,
             to_id,
             to_name: to_name.into(),
+            to_project_id: None,
+            relation_type: relation_type.into(),
+            weight: None,
+            metadata: HashMap::new(),
+            created_at: Utc::now(),
+        }
+    }
+
+    /// Create a cross-project relation with entity IDs
+    pub fn new_cross_project(
+        project_id: ProjectId,
+        from_id: EntityId,
+        from_name: impl Into<String>,
+        from_project_id: ProjectId,
+        to_id: EntityId,
+        to_name: impl Into<String>,
+        to_project_id: ProjectId,
+        relation_type: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: RelationId::new(),
+            project_id,
+            from_id,
+            from_name: from_name.into(),
+            from_project_id: Some(from_project_id),
+            to_id,
+            to_name: to_name.into(),
+            to_project_id: Some(to_project_id),
             relation_type: relation_type.into(),
             weight: None,
             metadata: HashMap::new(),
@@ -112,13 +149,32 @@ impl Relation {
             project_id,
             from_id: EntityId::new(),
             from_name: from_name.into(),
+            from_project_id: None,
             to_id: EntityId::new(),
             to_name: to_name.into(),
+            to_project_id: None,
             relation_type: relation_type.into(),
             weight: None,
             metadata: HashMap::new(),
             created_at: Utc::now(),
         }
+    }
+
+    /// Get the effective project ID for the source entity
+    /// Falls back to relation's project_id if from_project_id is not set
+    pub fn effective_from_project_id(&self) -> &ProjectId {
+        self.from_project_id.as_ref().unwrap_or(&self.project_id)
+    }
+
+    /// Get the effective project ID for the target entity
+    /// Falls back to relation's project_id if to_project_id is not set
+    pub fn effective_to_project_id(&self) -> &ProjectId {
+        self.to_project_id.as_ref().unwrap_or(&self.project_id)
+    }
+
+    /// Check if this is a cross-project relation
+    pub fn is_cross_project(&self) -> bool {
+        self.from_project_id.is_some() || self.to_project_id.is_some()
     }
 
     /// Set the weight of this relation

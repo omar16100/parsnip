@@ -98,6 +98,23 @@
 - Fixed potential panic in entity.rs add_observation() - added expect() with clear message
 - Fixed JSON serialization unwrap in server.rs - now returns proper error response
 
+### Security & Correctness Fixes (v0.1.1)
+- SSE auth + CORS lockdown: Bearer token auth, restrictive CORS (localhost only), request body limit (1MB)
+- SSE requires `--allow-remote` for non-localhost binding, `--auth-token` for auth
+- Fixed MCP stdio BufReader bug: keep one reader alive for entire session
+- Tantivy incremental indexing: only rebuild on first search if empty
+- Traversal O(V+E): adjacency map for O(1) neighbor lookups (was O(V·E))
+- Input validation limits: entity name (256 chars), observation (64KB), batch size (100), traversal depth (50)
+- CSV formula injection protection: prefix dangerous chars with ' to prevent spreadsheet interpretation
+- Data dir created with 0700 permissions on Unix
+
+### Performance Fixes (v0.1.2)
+- Batch writes in storage/import: single transaction for bulk entity/relation saves
+- Fixed N+1 relation reads in CLI search: pre-fetch relations once per project, index by entity name
+- tokio current_thread runtime for CLI: faster cold start (no multi-thread overhead)
+- install.sh SHA256 checksum verification: verifies downloaded binary against checksums.sha256
+- projectId field descriptions clarified: now documented as "Project name for data isolation"
+
 ### CLI Features (v0.5.x)
 - Config command: `parsnip config get|set|list|path|init`
 - Config file at `~/.parsnip/config.toml` or `$XDG_CONFIG_HOME/parsnip/config.toml`
@@ -123,6 +140,47 @@
 - Universal shell installer: `install.sh` (curl | sh)
 - Homebrew tap: `brew install omar16100/tap/parsnip`
 - Website updated with tabbed install options (Shell, Cargo, Homebrew)
+
+### Landing Page UI/UX Improvements (v0.6.x)
+
+**Accessibility (WCAG 2.1 AA)**
+- Added skip link for keyboard navigation
+- Added `:focus-visible` styles globally for keyboard focus indicators
+- Install tabs: proper ARIA (role="tablist", role="tab", aria-selected, aria-controls)
+- FAQ accordion: proper ARIA (role="button", aria-expanded, aria-controls)
+- Clickable elements: role="button", tabindex="0" for keyboard access
+- Copy buttons: keyboard accessible (Enter/Space) with aria-live announcements
+- External links: added rel="noopener noreferrer" for security
+- Hero SVG: added aria-hidden="true" for decorative element
+
+**Responsive Design**
+- Added mobile breakpoints: 480px, 640px, 768px, 1024px
+- Performance table: mobile scroll indicator
+- Footer links: flex-wrap for small screens
+- Hero graph: reduced opacity on mobile
+- Install tabs: wrap on small screens
+- Single-column layouts for features, storage, CLI on mobile
+
+**Navigation**
+- Added sticky nav header (appears after scrolling past hero)
+- Added section IDs for navigation links (#features, #mcp, #cli, #faq)
+- Added back-to-top button (appears after scrolling 400px)
+
+**SEO & Meta**
+- Added Open Graph meta tags (title, description, type, url)
+- Added Twitter Card meta tags
+- Added emoji favicon (parsnip: 🥕)
+
+**Content Fixes**
+- Fixed "11 tools" to "12 tools" (features + FAQ)
+- Fixed MCP config args from ["mcp"] to ["serve"]
+- Fixed install command display to match actual copied value
+
+**UX Improvements**
+- Added visible copy icons (not hover-only)
+- Copy feedback via aria-live region for screen readers
+- FAQ items closed by default
+- Removed inline onclick handlers, using event listeners instead
 
 ### Graph Traversal (v0.4.x)
 - TraversalEngine with BFS and Dijkstra algorithms

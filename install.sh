@@ -76,9 +76,38 @@ install() {
     TMP_DIR=$(mktemp -d)
     trap "rm -rf $TMP_DIR" EXIT
 
-    # Download
+    # Download binary
     if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$ASSET_NAME"; then
         error "Failed to download $ASSET_NAME. Make sure release exists at $DOWNLOAD_URL"
+    fi
+
+    # Download checksums and verify
+    CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.sha256"
+    if curl -fsSL "$CHECKSUM_URL" -o "$TMP_DIR/checksums.sha256" 2>/dev/null; then
+        info "Verifying checksum..."
+        EXPECTED_SUM=$(grep "$ASSET_NAME" "$TMP_DIR/checksums.sha256" | awk '{print $1}')
+        if [ -n "$EXPECTED_SUM" ]; then
+            if command -v sha256sum >/dev/null 2>&1; then
+                ACTUAL_SUM=$(sha256sum "$TMP_DIR/$ASSET_NAME" | awk '{print $1}')
+            elif command -v shasum >/dev/null 2>&1; then
+                ACTUAL_SUM=$(shasum -a 256 "$TMP_DIR/$ASSET_NAME" | awk '{print $1}')
+            else
+                warn "No sha256sum or shasum found, skipping checksum verification"
+                ACTUAL_SUM="$EXPECTED_SUM"
+            fi
+
+            if [ "$EXPECTED_SUM" != "$ACTUAL_SUM" ]; then
+                error "Checksum verification failed!
+Expected: $EXPECTED_SUM
+Got:      $ACTUAL_SUM
+The downloaded file may be corrupted or tampered with."
+            fi
+            info "Checksum verified"
+        else
+            warn "No checksum found for $ASSET_NAME, skipping verification"
+        fi
+    else
+        warn "Checksum file not found, skipping verification"
     fi
 
     # Extract

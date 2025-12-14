@@ -53,6 +53,16 @@ pub trait StorageBackend: Send + Sync {
     /// Get all relations for a project
     async fn get_all_relations(&self, project_id: &ProjectId) -> StorageResult<Vec<Relation>>;
 
+    /// Get all relations across all projects
+    async fn get_all_relations_all_projects(&self) -> StorageResult<Vec<Relation>>;
+
+    /// Get relations for an entity regardless of which project it's in
+    /// Searches all relations where from_name or to_name matches
+    async fn get_relations_for_entity_global(
+        &self,
+        entity_name: &str,
+    ) -> StorageResult<Vec<Relation>>;
+
     /// Delete a relation
     async fn delete_relation(
         &self,
@@ -104,4 +114,22 @@ pub trait StorageBackend: Send + Sync {
 
     /// Save entire graph for a project (replaces existing)
     async fn save_graph(&self, graph: &Graph, project_id: &ProjectId) -> StorageResult<()>;
+
+    /// Batch save entities (should use transaction for efficiency)
+    /// Default implementation calls save_entity for each
+    async fn save_entities_batch(&self, entities: &[Entity]) -> StorageResult<()> {
+        for entity in entities {
+            self.save_entity(entity).await?;
+        }
+        Ok(())
+    }
+
+    /// Batch save relations (should use transaction for efficiency)
+    /// Default implementation calls save_relation for each
+    async fn save_relations_batch(&self, relations: &[Relation]) -> StorageResult<()> {
+        for relation in relations {
+            self.save_relation(relation).await?;
+        }
+        Ok(())
+    }
 }

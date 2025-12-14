@@ -156,6 +156,29 @@ impl StorageBackend for MemoryStorage {
             .collect())
     }
 
+    async fn get_all_relations_all_projects(&self) -> StorageResult<Vec<Relation>> {
+        let relations = self
+            .relations
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
+        Ok(relations.iter().cloned().collect())
+    }
+
+    async fn get_relations_for_entity_global(
+        &self,
+        entity_name: &str,
+    ) -> StorageResult<Vec<Relation>> {
+        let relations = self
+            .relations
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
+        Ok(relations
+            .iter()
+            .filter(|r| r.from_name == entity_name || r.to_name == entity_name)
+            .cloned()
+            .collect())
+    }
+
     async fn delete_relation(
         &self,
         from: &str,

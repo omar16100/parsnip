@@ -293,6 +293,63 @@ impl StorageBackend for SqliteStorage {
         Ok(relations)
     }
 
+    async fn get_all_relations_all_projects(&self) -> StorageResult<Vec<Relation>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let mut stmt = conn
+            .prepare("SELECT data FROM relations")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let mut relations = Vec::new();
+        for row in rows {
+            let data = row.map_err(|e| StorageError::Database(e.to_string()))?;
+            let relation: Relation = serde_json::from_str(&data)?;
+            relations.push(relation);
+        }
+
+        Ok(relations)
+    }
+
+    async fn get_relations_for_entity_global(
+        &self,
+        entity_name: &str,
+    ) -> StorageResult<Vec<Relation>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let mut stmt = conn
+            .prepare("SELECT data FROM relations WHERE from_name = ?1 OR to_name = ?1")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let rows = stmt
+            .query_map(params![entity_name], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let mut relations = Vec::new();
+        for row in rows {
+            let data = row.map_err(|e| StorageError::Database(e.to_string()))?;
+            let relation: Relation = serde_json::from_str(&data)?;
+            relations.push(relation);
+        }
+
+        Ok(relations)
+    }
+
     async fn delete_relation(
         &self,
         from: &str,

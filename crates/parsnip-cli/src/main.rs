@@ -1,6 +1,6 @@
 //! Parsnip CLI - Command line interface for the knowledge graph
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use clap::{Args, Parser, Subcommand};
@@ -16,7 +16,7 @@ use parsnip_mcp::McpServer;
 #[cfg(feature = "redb")]
 use parsnip_storage::RedbStorage;
 
-#[cfg(feature = "sqlite")]
+#[cfg(all(feature = "sqlite", not(feature = "redb")))]
 use parsnip_storage::SqliteStorage;
 
 #[cfg(feature = "fulltext")]
@@ -104,6 +104,14 @@ pub struct ServeArgs {
     /// Host to bind for SSE transport
     #[arg(long, default_value = "127.0.0.1")]
     pub host: String,
+
+    /// Auth token for SSE transport (required for non-localhost)
+    #[arg(long, env = "PARSNIP_AUTH_TOKEN")]
+    pub auth_token: Option<String>,
+
+    /// Allow binding to non-localhost addresses (requires --auth-token)
+    #[arg(long)]
+    pub allow_remote: bool,
 }
 
 // Storage type alias based on feature
@@ -120,10 +128,33 @@ pub struct AppContext {
     pub fulltext: Option<Arc<FullTextSearchEngine>>,
 }
 
+/// Create directory with secure permissions (0700 on Unix)
+fn create_secure_dir(path: &Path) -> std::io::Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+
+    // Create parent directories first
+    if let Some(parent) = path.parent() {
+        create_secure_dir(parent)?;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new().mode(0o700).create(path)
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::create_dir(path)
+    }
+}
+
 impl AppContext {
     pub async fn new(cli: &Cli) -> anyhow::Result<Self> {
         let data_dir = cli.data_dir();
-        std::fs::create_dir_all(&data_dir)?;
+        create_secure_dir(&data_dir)?;
 
         #[cfg(feature = "redb")]
         let storage = {
@@ -143,7 +174,7 @@ impl AppContext {
         #[cfg(feature = "fulltext")]
         let fulltext = {
             let index_path = data_dir.join("index");
-            std::fs::create_dir_all(&index_path)?;
+            create_secure_dir(&index_path)?;
             match FullTextSearchEngine::new(&index_path) {
                 Ok(engine) => {
                     tracing::debug!("Full-text search index at: {:?}", index_path);
@@ -164,7 +195,9 @@ impl AppContext {
     }
 }
 
-#[tokio::main]
+// Use current_thread runtime for faster CLI cold start
+// Multi-threaded runtime is overkill for CLI operations
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
@@ -199,9 +232,28 @@ async fn main() -> anyhow::Result<()> {
             match args.transport.as_str() {
                 #[cfg(feature = "sse")]
                 "sse" | "http" => {
+                    let is_localhost =
+                        args.host == "127.0.0.1" || args.host == "localhost" || args.host == "::1";
+
+                    // Security: require --allow-remote for non-localhost binding
+                    if !is_localhost && !args.allow_remote {
+                        anyhow::bail!(
+                            "Binding to {} requires --allow-remote flag.\n\
+                             WARNING: This exposes your knowledge graph to the network!",
+                            args.host
+                        );
+                    }
+
+                    // Security: require auth token for non-localhost or if specified
+                    if !is_localhost && args.auth_token.is_none() {
+                        anyhow::bail!(
+                            "Non-localhost binding requires --auth-token or PARSNIP_AUTH_TOKEN env var"
+                        );
+                    }
+
                     let addr = format!("{}:{}", args.host, args.port);
                     tracing::info!("Starting MCP server with SSE transport on {}", addr);
-                    parsnip_mcp::run_sse_server(server, &addr).await?;
+                    parsnip_mcp::run_sse_server(server, &addr, args.auth_token.clone()).await?;
                 }
                 #[cfg(not(feature = "sse"))]
                 "sse" | "http" => {

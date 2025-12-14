@@ -127,8 +127,13 @@ impl SearchEngine for FullTextSearchEngine {
             _ => return Ok(Vec::new()),
         };
 
-        // Rebuild index with provided entities for accurate search
-        self.rebuild_index(entities).await?;
+        // Ensure index is up to date if empty (first search or after clear)
+        // For subsequent searches, rely on incremental updates via index_entity
+        let searcher = self.reader.searcher();
+        if searcher.num_docs() == 0 && !entities.is_empty() {
+            // Index is empty but we have entities - do initial indexing
+            self.rebuild_index(entities).await?;
+        }
 
         let searcher = self.reader.searcher();
         let query_parser =

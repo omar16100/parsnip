@@ -140,8 +140,8 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
             query = query.with_fuzzy_threshold(threshold);
         }
 
-        // Get entities to search
-        let entities = if args.search_all.unwrap_or(false) {
+        // Get entities to search (default: search all projects)
+        let entities = if args.search_all.unwrap_or(true) {
             match self.storage.get_all_entities_all_projects().await {
                 Ok(e) => e,
                 Err(e) => return ToolCallResponse::error(format!("Failed to get entities: {}", e)),
@@ -359,7 +359,11 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
         #[derive(Deserialize)]
         struct RelationInput {
             from: String,
+            #[serde(rename = "fromProjectId")]
+            from_project_id: Option<String>,
             to: String,
+            #[serde(rename = "toProjectId")]
+            to_project_id: Option<String>,
             #[serde(rename = "relationType")]
             relation_type: String,
         }
@@ -376,28 +380,49 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
 
         let mut created = Vec::new();
         for input in args.relations {
-            // Verify entities exist
-            match self.storage.get_entity(&input.from, &project.id).await {
-                Ok(Some(_)) => {}
-                Ok(None) => {
-                    return ToolCallResponse::error(format!("Entity not found: {}", input.from))
-                }
-                Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
-            }
-            match self.storage.get_entity(&input.to, &project.id).await {
-                Ok(Some(_)) => {}
-                Ok(None) => {
-                    return ToolCallResponse::error(format!("Entity not found: {}", input.to))
-                }
-                Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
-            }
+            // Resolve from entity - try specified project, then current project, then global search
+            let from_entity = match self
+                .find_entity_for_relation(&input.from, input.from_project_id.as_deref(), &project)
+                .await
+            {
+                Ok(e) => e,
+                Err(msg) => return ToolCallResponse::error(msg),
+            };
 
-            let relation = Relation::from_names(
-                project.id.clone(),
-                &input.from,
-                &input.to,
-                &input.relation_type,
-            );
+            // Resolve to entity - try specified project, then current project, then global search
+            let to_entity = match self
+                .find_entity_for_relation(&input.to, input.to_project_id.as_deref(), &project)
+                .await
+            {
+                Ok(e) => e,
+                Err(msg) => return ToolCallResponse::error(msg),
+            };
+
+            // Check if this is a cross-project relation
+            let is_cross_project = from_entity.project_id != to_entity.project_id;
+
+            // Create relation with real entity IDs
+            let relation = if is_cross_project {
+                Relation::new_cross_project(
+                    project.id.clone(),
+                    from_entity.id.clone(),
+                    &from_entity.name,
+                    from_entity.project_id.clone(),
+                    to_entity.id.clone(),
+                    &to_entity.name,
+                    to_entity.project_id.clone(),
+                    &input.relation_type,
+                )
+            } else {
+                Relation::new(
+                    project.id.clone(),
+                    from_entity.id.clone(),
+                    &from_entity.name,
+                    to_entity.id.clone(),
+                    &to_entity.name,
+                    &input.relation_type,
+                )
+            };
 
             if let Err(e) = self.storage.save_relation(&relation).await {
                 return ToolCallResponse::error(format!("Failed to create relation: {}", e));
@@ -411,6 +436,57 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
         ToolCallResponse::json(&serde_json::json!({
             "created": created
         }))
+    }
+
+    /// Find an entity for relation creation
+    /// Priority: specified project > current project > global search
+    async fn find_entity_for_relation(
+        &self,
+        name: &str,
+        project_id: Option<&str>,
+        current_project: &Project,
+    ) -> Result<Entity, String> {
+        // If project specified, look up in that project
+        if let Some(pid) = project_id {
+            let proj = self.get_or_create_project(Some(pid)).await?;
+            match self.storage.get_entity(name, &proj.id).await {
+                Ok(Some(e)) => return Ok(e),
+                Ok(None) => {
+                    return Err(format!("Entity '{}' not found in project '{}'", name, pid))
+                }
+                Err(e) => return Err(format!("Storage error: {}", e)),
+            }
+        }
+
+        // Try current project first
+        if let Ok(Some(e)) = self.storage.get_entity(name, &current_project.id).await {
+            return Ok(e);
+        }
+
+        // Search globally
+        let all_entities = self
+            .storage
+            .get_all_entities_all_projects()
+            .await
+            .map_err(|e| format!("Storage error: {}", e))?;
+
+        let matches: Vec<_> = all_entities
+            .into_iter()
+            .filter(|e| e.name == name)
+            .collect();
+
+        match matches.len() {
+            0 => Err(format!("Entity not found: {}", name)),
+            1 => Ok(matches.into_iter().next().unwrap()),
+            _ => {
+                let projects: Vec<_> = matches.iter().map(|e| e.project_id.to_string()).collect();
+                Err(format!(
+                    "Entity '{}' found in multiple projects: {}. Specify fromProjectId/toProjectId.",
+                    name,
+                    projects.join(", ")
+                ))
+            }
+        }
     }
 
     async fn delete_entities(&self, args: serde_json::Value) -> ToolCallResponse {

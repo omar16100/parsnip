@@ -250,6 +250,51 @@ impl StorageBackend for RedbStorage {
         Ok(relations)
     }
 
+    async fn get_all_relations_all_projects(&self) -> StorageResult<Vec<Relation>> {
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let table = read_txn.open_table(RELATIONS)?;
+
+        let mut relations = Vec::new();
+        for entry in table.iter()? {
+            let (_, value) = entry?;
+            let relation: Relation = serde_json::from_slice(value.value())?;
+            relations.push(relation);
+        }
+
+        Ok(relations)
+    }
+
+    async fn get_relations_for_entity_global(
+        &self,
+        entity_name: &str,
+    ) -> StorageResult<Vec<Relation>> {
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let table = read_txn.open_table(RELATIONS)?;
+
+        let mut relations = Vec::new();
+        for entry in table.iter()? {
+            let (_, value) = entry?;
+            let relation: Relation = serde_json::from_slice(value.value())?;
+            if relation.from_name == entity_name || relation.to_name == entity_name {
+                relations.push(relation);
+            }
+        }
+
+        Ok(relations)
+    }
+
     async fn delete_relation(
         &self,
         from: &str,
@@ -436,12 +481,72 @@ impl StorageBackend for RedbStorage {
     }
 
     async fn save_graph(&self, graph: &Graph, _project_id: &ProjectId) -> StorageResult<()> {
-        for entity in &graph.entities {
-            self.save_entity(entity).await?;
+        // Use batch methods for transactional efficiency
+        self.save_entities_batch(&graph.entities).await?;
+        self.save_relations_batch(&graph.relations).await?;
+        Ok(())
+    }
+
+    async fn save_entities_batch(&self, entities: &[Entity]) -> StorageResult<()> {
+        if entities.is_empty() {
+            return Ok(());
         }
-        for relation in &graph.relations {
-            self.save_relation(relation).await?;
+
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        {
+            let mut table = write_txn.open_table(ENTITIES)?;
+            for entity in entities {
+                let key = Self::make_entity_key(&entity.project_id, &entity.name);
+                let value = serde_json::to_vec(entity)?;
+                table.insert(key.as_str(), value.as_slice())?;
+            }
         }
+        write_txn.commit()?;
+        tracing::debug!(
+            "Batch saved {} entities in single transaction",
+            entities.len()
+        );
+
+        Ok(())
+    }
+
+    async fn save_relations_batch(&self, relations: &[Relation]) -> StorageResult<()> {
+        if relations.is_empty() {
+            return Ok(());
+        }
+
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        {
+            let mut table = write_txn.open_table(RELATIONS)?;
+            for relation in relations {
+                let key = Self::make_relation_key(
+                    &relation.project_id,
+                    &relation.from_name,
+                    &relation.to_name,
+                    &relation.relation_type,
+                );
+                let value = serde_json::to_vec(relation)?;
+                table.insert(key.as_str(), value.as_slice())?;
+            }
+        }
+        write_txn.commit()?;
+        tracing::debug!(
+            "Batch saved {} relations in single transaction",
+            relations.len()
+        );
+
         Ok(())
     }
 }

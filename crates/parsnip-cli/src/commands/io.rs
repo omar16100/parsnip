@@ -138,34 +138,45 @@ pub async fn run_import(args: &ImportArgs, _cli: &Cli, ctx: &AppContext) -> anyh
             p
         };
 
-        // Import entities
-        for entity_data in &project_data.entities {
-            let mut entity = Entity::new(
-                project.id.clone(),
-                &entity_data.name,
-                &entity_data.entity_type,
-            );
-            for obs in &entity_data.observations {
-                entity.add_observation(obs);
-            }
-            for tag in &entity_data.tags {
-                entity.add_tag(tag);
-            }
-            ctx.storage.save_entity(&entity).await?;
-            total_entities += 1;
-        }
+        // Build entities batch
+        let entities: Vec<Entity> = project_data
+            .entities
+            .iter()
+            .map(|entity_data| {
+                let mut entity = Entity::new(
+                    project.id.clone(),
+                    &entity_data.name,
+                    &entity_data.entity_type,
+                );
+                for obs in &entity_data.observations {
+                    entity.add_observation(obs);
+                }
+                for tag in &entity_data.tags {
+                    entity.add_tag(tag);
+                }
+                entity
+            })
+            .collect();
 
-        // Import relations
-        for rel_data in &project_data.relations {
-            let relation = Relation::from_names(
-                project.id.clone(),
-                &rel_data.from,
-                &rel_data.to,
-                &rel_data.relation_type,
-            );
-            ctx.storage.save_relation(&relation).await?;
-            total_relations += 1;
-        }
+        // Build relations batch
+        let relations: Vec<Relation> = project_data
+            .relations
+            .iter()
+            .map(|rel_data| {
+                Relation::from_names(
+                    project.id.clone(),
+                    &rel_data.from,
+                    &rel_data.to,
+                    &rel_data.relation_type,
+                )
+            })
+            .collect();
+
+        // Batch save for efficiency
+        ctx.storage.save_entities_batch(&entities).await?;
+        ctx.storage.save_relations_batch(&relations).await?;
+        total_entities += entities.len();
+        total_relations += relations.len();
 
         tracing::info!(
             "Imported {} entities and {} relations into project '{}'",
@@ -313,11 +324,27 @@ fn export_to_csv(data: &ExportData) -> String {
     output
 }
 
+/// Escape a string for CSV output with formula injection protection
 fn csv_escape(s: &str) -> String {
-    if s.contains(',') || s.contains('"') || s.contains('\n') {
-        format!("\"{}\"", s.replace('"', "\"\""))
+    // Protect against CSV formula injection (OWASP)
+    // Prefix dangerous chars with ' to prevent spreadsheet interpretation
+    let needs_formula_protection = s
+        .chars()
+        .next()
+        .map(|c| matches!(c, '=' | '+' | '-' | '@' | '\t' | '\r'))
+        .unwrap_or(false);
+
+    let escaped = if needs_formula_protection {
+        format!("'{}", s)
     } else {
         s.to_string()
+    };
+
+    // Quote if contains special CSV chars
+    if escaped.contains(',') || escaped.contains('"') || escaped.contains('\n') {
+        format!("\"{}\"", escaped.replace('"', "\"\""))
+    } else {
+        escaped
     }
 }
 
@@ -412,7 +439,7 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
         p
     };
 
-    // Read entities from knowledgegraph-mcp
+    // Read entities from knowledgegraph-mcp into batch
     let mut stmt = conn.prepare("SELECT name, entity_type, observations, tags FROM entities")?;
 
     let entities_iter = stmt.query_map([], |row| {
@@ -423,7 +450,7 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
         Ok((name, entity_type, observations_json, tags_json))
     })?;
 
-    let mut entity_count = 0;
+    let mut entities = Vec::new();
     for entity_result in entities_iter {
         let (name, entity_type, observations_json, tags_json) = entity_result?;
 
@@ -440,12 +467,10 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
         for tag in tags {
             entity.add_tag(&tag);
         }
-
-        ctx.storage.save_entity(&entity).await?;
-        entity_count += 1;
+        entities.push(entity);
     }
 
-    // Read relations
+    // Read relations into batch
     let mut stmt = conn.prepare("SELECT from_entity, to_entity, relation_type FROM relations")?;
 
     let relations_iter = stmt.query_map([], |row| {
@@ -455,13 +480,18 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
         Ok((from, to, rel_type))
     })?;
 
-    let mut relation_count = 0;
+    let mut relations = Vec::new();
     for rel_result in relations_iter {
         let (from, to, rel_type) = rel_result?;
         let relation = Relation::from_names(project.id.clone(), &from, &to, &rel_type);
-        ctx.storage.save_relation(&relation).await?;
-        relation_count += 1;
+        relations.push(relation);
     }
+
+    // Batch save for efficiency
+    let entity_count = entities.len();
+    let relation_count = relations.len();
+    ctx.storage.save_entities_batch(&entities).await?;
+    ctx.storage.save_relations_batch(&relations).await?;
 
     tracing::info!(
         "Imported {} entities and {} relations from knowledgegraph-mcp",

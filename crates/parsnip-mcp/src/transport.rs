@@ -55,16 +55,29 @@ impl JsonRpcResponse {
 }
 
 /// Stdio transport for MCP
-pub struct StdioTransport;
+pub struct StdioTransport {
+    reader: BufReader<tokio::io::Stdin>,
+}
+
+impl Default for StdioTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl StdioTransport {
+    /// Create a new stdio transport
+    pub fn new() -> Self {
+        Self {
+            reader: BufReader::new(tokio::io::stdin()),
+        }
+    }
+
     /// Read a JSON-RPC request from stdin
-    pub async fn read_request() -> std::io::Result<Option<JsonRpcRequest>> {
-        let stdin = tokio::io::stdin();
-        let mut reader = BufReader::new(stdin);
+    pub async fn read_request(&mut self) -> std::io::Result<Option<JsonRpcRequest>> {
         let mut line = String::new();
 
-        if reader.read_line(&mut line).await? == 0 {
+        if self.reader.read_line(&mut line).await? == 0 {
             return Ok(None);
         }
 
