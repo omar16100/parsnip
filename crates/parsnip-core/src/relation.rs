@@ -110,6 +110,7 @@ impl Relation {
     }
 
     /// Create a cross-project relation with entity IDs
+    #[allow(clippy::too_many_arguments)]
     pub fn new_cross_project(
         project_id: ProjectId,
         from_id: EntityId,
