@@ -40,15 +40,15 @@
 - [x] Connect CLI to storage backend
 - [ ] commands/import.rs
 - [ ] commands/export.rs
-- [ ] commands/serve.rs - Start MCP server
+- [x] commands/serve.rs - Start MCP server (wired to McpServer)
 
 ### parsnip-mcp
 - [x] lib.rs - module exports
-- [x] server.rs - MCP server (skeleton)
-- [x] tools.rs - Tool definitions (skeleton)
-- [x] handlers.rs - Tool handlers (skeleton)
-- [x] transport.rs - stdio transport (skeleton)
-- [ ] Implement full MCP protocol
+- [x] server.rs - Full MCP server with JSON-RPC handling
+- [x] tools.rs - 11 tool definitions (search, CRUD, tags)
+- [x] handlers.rs - Request/response types
+- [x] transport.rs - stdio transport with JSON-RPC
+- [x] Full MCP protocol implemented
 
 ## Changes Made
 
@@ -66,6 +66,11 @@
 - All 23 tests passing
 - Cross-project search verified working (--all-projects flag)
 - Data persists in ReDB at ~/Library/Application Support/parsnip/parsnip.redb
+- MCP server fully implemented with 11 tools
+- MCP server tested: initialize, tools/list, tools/call all working
+- Serve command wired to MCP server (parsnip serve)
+- Pushed to GitHub: https://github.com/omar16100/parsnip
+- Added to Claude Code MCP: `claude mcp add parsnip`
 
 ## CLI Usage Examples
 
