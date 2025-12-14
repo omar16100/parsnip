@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 
-use parsnip_core::{Entity, SearchQuery, TagMatchMode};
 use crate::traits::{Result, SearchEngine};
+use parsnip_core::{Entity, SearchQuery, TagMatchMode};
 
 /// Simple exact substring search engine (stateless)
 pub struct ExactSearchEngine;
@@ -26,9 +26,10 @@ impl ExactSearchEngine {
     fn matches_query(entity: &Entity, query: &SearchQuery) -> bool {
         // Filter by entity type if specified
         if !query.entity_types.is_empty() {
-            let type_match = query.entity_types.iter().any(|t| {
-                t.to_lowercase() == entity.entity_type.0.to_lowercase()
-            });
+            let type_match = query
+                .entity_types
+                .iter()
+                .any(|t| t.to_lowercase() == entity.entity_type.0.to_lowercase());
             if !type_match {
                 return false;
             }
@@ -40,12 +41,8 @@ impl ExactSearchEngine {
             let entity_tags: Vec<String> = entity.tags.iter().map(|t| t.to_lowercase()).collect();
 
             let tag_match = match query.tag_match_mode {
-                TagMatchMode::Any => {
-                    search_tags.iter().any(|t| entity_tags.contains(t))
-                }
-                TagMatchMode::All => {
-                    search_tags.iter().all(|t| entity_tags.contains(t))
-                }
+                TagMatchMode::Any => search_tags.iter().any(|t| entity_tags.contains(t)),
+                TagMatchMode::All => search_tags.iter().all(|t| entity_tags.contains(t)),
             };
             if !tag_match {
                 return false;
@@ -152,9 +149,7 @@ mod tests {
         let entity2 = create_test_entity("Jane_Doe", "person", &project_id);
         let entities = vec![entity1, entity2];
 
-        let query = SearchQuery::empty()
-            .with_tag("urgent")
-            .in_all_projects();
+        let query = SearchQuery::empty().with_tag("urgent").in_all_projects();
         let results = search.search(&query, &entities).await.unwrap();
 
         assert_eq!(results.len(), 1);

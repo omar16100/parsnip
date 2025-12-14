@@ -112,9 +112,12 @@ mod tests {
 
     #[test]
     fn test_project_with_description() {
-        let project = Project::new("security-research")
-            .with_description("Security vulnerability findings");
-        assert_eq!(project.description, Some("Security vulnerability findings".to_string()));
+        let project =
+            Project::new("security-research").with_description("Security vulnerability findings");
+        assert_eq!(
+            project.description,
+            Some("Security vulnerability findings".to_string())
+        );
     }
 
     #[test]

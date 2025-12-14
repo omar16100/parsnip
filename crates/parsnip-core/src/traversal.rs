@@ -633,8 +633,14 @@ mod tests {
     fn test_no_path_found() {
         let project_id = ProjectId::new();
         let mut entities = HashMap::new();
-        entities.insert("A".to_string(), Entity::new(project_id.clone(), "A", "node"));
-        entities.insert("B".to_string(), Entity::new(project_id.clone(), "B", "node"));
+        entities.insert(
+            "A".to_string(),
+            Entity::new(project_id.clone(), "A", "node"),
+        );
+        entities.insert(
+            "B".to_string(),
+            Entity::new(project_id.clone(), "B", "node"),
+        );
         // No relations - disconnected graph
 
         let query = TraversalQuery::new("A").find_path_to("B");

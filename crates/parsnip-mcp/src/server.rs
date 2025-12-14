@@ -2,13 +2,15 @@
 
 use std::sync::Arc;
 
-use std::collections::HashMap;
-use parsnip_core::{Direction, Entity, Project, Relation, SearchMode, SearchQuery, TraversalEngine, TraversalQuery};
-use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
+use parsnip_core::{
+    Direction, Entity, Project, Relation, SearchMode, SearchQuery, TraversalEngine, TraversalQuery,
+};
 #[cfg(feature = "fulltext")]
 use parsnip_search::FullTextSearchEngine;
+use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
 use parsnip_storage::StorageBackend;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::handlers::ToolCallResponse;
 use crate::tools::get_tools;
@@ -66,7 +68,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             "tools/list" => self.handle_tools_list(request.id).await,
             "tools/call" => self.handle_tools_call(request.id, request.params).await,
             "ping" => JsonRpcResponse::success(request.id, serde_json::json!({})),
-            _ => JsonRpcResponse::error(request.id, -32601, format!("Method not found: {}", request.method)),
+            _ => JsonRpcResponse::error(
+                request.id,
+                -32601,
+                format!("Method not found: {}", request.method),
+            ),
         }
     }
 
@@ -89,7 +95,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
         JsonRpcResponse::success(id, serde_json::json!({ "tools": tools }))
     }
 
-    async fn handle_tools_call(&self, id: serde_json::Value, params: serde_json::Value) -> JsonRpcResponse {
+    async fn handle_tools_call(
+        &self,
+        id: serde_json::Value,
+        params: serde_json::Value,
+    ) -> JsonRpcResponse {
         #[derive(Deserialize)]
         struct ToolCallParams {
             name: String,
@@ -102,7 +112,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             Err(e) => return JsonRpcResponse::error(id, -32602, format!("Invalid params: {}", e)),
         };
 
-        tracing::debug!("Tool call: {} with args: {:?}", params.name, params.arguments);
+        tracing::debug!(
+            "Tool call: {} with args: {:?}",
+            params.name,
+            params.arguments
+        );
 
         let response = match params.name.as_str() {
             "search_knowledge" => self.handle_search(params.arguments).await,
@@ -207,16 +221,17 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
                 engine.search(&query, &entities).await
             }
             #[cfg(feature = "fulltext")]
-            SearchMode::FullText | SearchMode::Hybrid => {
-                match FullTextSearchEngine::in_memory() {
-                    Ok(engine) => engine.search(&query, &entities).await,
-                    Err(e) => {
-                        tracing::warn!("Failed to create fulltext engine: {}, falling back to exact", e);
-                        let engine = ExactSearchEngine::new();
-                        engine.search(&query, &entities).await
-                    }
+            SearchMode::FullText | SearchMode::Hybrid => match FullTextSearchEngine::in_memory() {
+                Ok(engine) => engine.search(&query, &entities).await,
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to create fulltext engine: {}, falling back to exact",
+                        e
+                    );
+                    let engine = ExactSearchEngine::new();
+                    engine.search(&query, &entities).await
                 }
-            }
+            },
             #[cfg(not(feature = "fulltext"))]
             SearchMode::FullText | SearchMode::Hybrid => {
                 tracing::warn!("Fulltext search not enabled, falling back to exact");
@@ -280,7 +295,8 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut created = 0;
         for input in args.entities {
-            let mut entity = Entity::new(project.id.clone(), &input.name, input.entity_type.as_str());
+            let mut entity =
+                Entity::new(project.id.clone(), &input.name, input.entity_type.as_str());
             for obs in input.observations {
                 entity.add_observation(&obs);
             }
@@ -324,9 +340,18 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut added = 0;
         for input in args.observations {
-            let entity = match self.storage.get_entity(&input.entity_name, &project.id).await {
+            let entity = match self
+                .storage
+                .get_entity(&input.entity_name, &project.id)
+                .await
+            {
                 Ok(Some(e)) => e,
-                Ok(None) => return ToolCallResponse::error(format!("Entity not found: {}", input.entity_name)),
+                Ok(None) => {
+                    return ToolCallResponse::error(format!(
+                        "Entity not found: {}",
+                        input.entity_name
+                    ))
+                }
                 Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
             };
 
@@ -408,7 +433,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut deleted = 0;
         for name in args.entity_names {
-            if let Err(e) = self.storage.delete_relations_for_entity(&name, &project.id).await {
+            if let Err(e) = self
+                .storage
+                .delete_relations_for_entity(&name, &project.id)
+                .await
+            {
                 tracing::warn!("Failed to delete relations for {}: {}", name, e);
             }
             if let Err(e) = self.storage.delete_entity(&name, &project.id).await {
@@ -449,7 +478,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut deleted = 0;
         for rel in args.relations {
-            if let Err(e) = self.storage.delete_relation(&rel.from, &rel.to, &rel.relation_type, &project.id).await {
+            if let Err(e) = self
+                .storage
+                .delete_relation(&rel.from, &rel.to, &rel.relation_type, &project.id)
+                .await
+            {
                 return ToolCallResponse::error(format!("Failed to delete relation: {}", e));
             }
             deleted += 1;
@@ -488,12 +521,19 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
         for del in args.deletions {
             let entity = match self.storage.get_entity(&del.entity_name, &project.id).await {
                 Ok(Some(e)) => e,
-                Ok(None) => return ToolCallResponse::error(format!("Entity not found: {}", del.entity_name)),
+                Ok(None) => {
+                    return ToolCallResponse::error(format!(
+                        "Entity not found: {}",
+                        del.entity_name
+                    ))
+                }
                 Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
             };
 
             let mut updated = entity;
-            updated.observations.retain(|o| !del.observations.contains(&o.content));
+            updated
+                .observations
+                .retain(|o| !del.observations.contains(&o.content));
             deleted += del.observations.len();
 
             if let Err(e) = self.storage.save_entity(&updated).await {
@@ -566,7 +606,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             if let Ok(Some(entity)) = self.storage.get_entity(name, &project.id).await {
                 entities.push(EntityResult::from(&entity));
 
-                if let Ok(rels) = self.storage.get_relations_for_entity(name, &project.id).await {
+                if let Ok(rels) = self
+                    .storage
+                    .get_relations_for_entity(name, &project.id)
+                    .await
+                {
                     for rel in rels {
                         relations.push(RelationResult::from(&rel));
                     }
@@ -574,7 +618,10 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
             }
         }
 
-        let result = GraphResult { entities, relations };
+        let result = GraphResult {
+            entities,
+            relations,
+        };
         ToolCallResponse::text(serde_json::to_string_pretty(&result).unwrap())
     }
 
@@ -606,9 +653,18 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut added = 0;
         for update in args.updates {
-            let entity = match self.storage.get_entity(&update.entity_name, &project.id).await {
+            let entity = match self
+                .storage
+                .get_entity(&update.entity_name, &project.id)
+                .await
+            {
                 Ok(Some(e)) => e,
-                Ok(None) => return ToolCallResponse::error(format!("Entity not found: {}", update.entity_name)),
+                Ok(None) => {
+                    return ToolCallResponse::error(format!(
+                        "Entity not found: {}",
+                        update.entity_name
+                    ))
+                }
                 Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
             };
 
@@ -654,9 +710,18 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut removed = 0;
         for update in args.updates {
-            let entity = match self.storage.get_entity(&update.entity_name, &project.id).await {
+            let entity = match self
+                .storage
+                .get_entity(&update.entity_name, &project.id)
+                .await
+            {
                 Ok(Some(e)) => e,
-                Ok(None) => return ToolCallResponse::error(format!("Entity not found: {}", update.entity_name)),
+                Ok(None) => {
+                    return ToolCallResponse::error(format!(
+                        "Entity not found: {}",
+                        update.entity_name
+                    ))
+                }
                 Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
             };
 
@@ -698,10 +763,11 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
         };
 
         // Load entities and relations
-        let entities: HashMap<String, Entity> = match self.storage.get_all_entities(&project.id).await {
-            Ok(e) => e.into_iter().map(|ent| (ent.name.clone(), ent)).collect(),
-            Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
-        };
+        let entities: HashMap<String, Entity> =
+            match self.storage.get_all_entities(&project.id).await {
+                Ok(e) => e.into_iter().map(|ent| (ent.name.clone(), ent)).collect(),
+                Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
+            };
 
         let relations = match self.storage.get_all_relations(&project.id).await {
             Ok(r) => r,
@@ -749,7 +815,10 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         tracing::info!(
             "Traversing from '{}' (target: {:?}, depth: {}, direction: {:?})",
-            args.start, query.target, query.max_depth, query.direction
+            args.start,
+            query.target,
+            query.max_depth,
+            query.direction
         );
 
         // Execute traversal
@@ -757,17 +826,25 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         // Convert to JSON response
         let response = TraversalResultJson {
-            paths: result.paths.iter().map(|p| PathJson {
-                nodes: p.nodes.clone(),
-                edges: p.edges.iter().map(|e| PathEdgeJson {
-                    from: e.from.clone(),
-                    to: e.to.clone(),
-                    relation_type: e.relation_type.clone(),
-                    weight: e.weight,
-                }).collect(),
-                total_weight: p.total_weight,
-                length: p.length,
-            }).collect(),
+            paths: result
+                .paths
+                .iter()
+                .map(|p| PathJson {
+                    nodes: p.nodes.clone(),
+                    edges: p
+                        .edges
+                        .iter()
+                        .map(|e| PathEdgeJson {
+                            from: e.from.clone(),
+                            to: e.to.clone(),
+                            relation_type: e.relation_type.clone(),
+                            weight: e.weight,
+                        })
+                        .collect(),
+                    total_weight: p.total_weight,
+                    length: p.length,
+                })
+                .collect(),
             visited_entities: result.visited_entities.clone(),
             entities: result.entities.iter().map(EntityResult::from).collect(),
             relations: result.relations.iter().map(RelationResult::from).collect(),
@@ -789,10 +866,16 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
 
         let mut results = Vec::new();
         for project in projects {
-            let entity_count = self.storage.get_all_entities(&project.id).await
+            let entity_count = self
+                .storage
+                .get_all_entities(&project.id)
+                .await
                 .map(|e| e.len())
                 .unwrap_or(0);
-            let relation_count = self.storage.get_all_relations(&project.id).await
+            let relation_count = self
+                .storage
+                .get_all_relations(&project.id)
+                .await
                 .map(|r| r.len())
                 .unwrap_or(0);
 

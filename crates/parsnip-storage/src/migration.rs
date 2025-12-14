@@ -16,12 +16,10 @@ pub struct SchemaVersion {
 
 /// All schema versions with their migrations
 pub fn get_migrations() -> Vec<SchemaVersion> {
-    vec![
-        SchemaVersion {
-            version: 1,
-            description: "Initial schema with entities, relations, and projects",
-        },
-    ]
+    vec![SchemaVersion {
+        version: 1,
+        description: "Initial schema with entities, relations, and projects",
+    }]
 }
 
 /// Migration trait for storage backends

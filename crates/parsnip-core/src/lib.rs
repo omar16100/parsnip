@@ -19,4 +19,6 @@ pub use observation::{Observation, ObservationId};
 pub use project::{Project, ProjectId};
 pub use query::{Pagination, ProjectScope, SearchMode, SearchQuery, TagMatchMode};
 pub use relation::{Direction, NewRelation, Relation, RelationId};
-pub use traversal::{GraphPath, PathEdge, TraversalEngine, TraversalQuery, TraversalResult, TraversalStats};
+pub use traversal::{
+    GraphPath, PathEdge, TraversalEngine, TraversalQuery, TraversalResult, TraversalStats,
+};

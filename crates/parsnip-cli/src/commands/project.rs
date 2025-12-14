@@ -57,8 +57,13 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
             } else {
                 println!("Projects ({} found):", projects.len());
                 for project in &projects {
-                    let current = if project.name == cli.project { " (current)" } else { "" };
-                    let desc = project.description
+                    let current = if project.name == cli.project {
+                        " (current)"
+                    } else {
+                        ""
+                    };
+                    let desc = project
+                        .description
                         .as_ref()
                         .map(|d| format!(" - {}", d))
                         .unwrap_or_default();
@@ -89,7 +94,10 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
         ProjectCommands::Use { name } => {
             // Check if project exists
             if ctx.storage.get_project(name).await?.is_none() {
-                println!("Project '{}' not found. Create it with 'parsnip project create {}'", name, name);
+                println!(
+                    "Project '{}' not found. Create it with 'parsnip project create {}'",
+                    name, name
+                );
                 return Ok(());
             }
 
@@ -100,7 +108,10 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
 
             tracing::info!("Set default project to: {}", name);
             println!("Default project set to: {}", name);
-            println!("Config saved to: {}", crate::config::config_file_path().display());
+            println!(
+                "Config saved to: {}",
+                crate::config::config_file_path().display()
+            );
         }
         ProjectCommands::Delete { name, force } => {
             // Check if project exists
@@ -117,14 +128,25 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
             let relation_count = ctx.storage.get_all_relations(&project.id).await?.len();
 
             if !force {
-                println!("Project '{}' has {} entities and {} relations", name, entity_count, relation_count);
+                println!(
+                    "Project '{}' has {} entities and {} relations",
+                    name, entity_count, relation_count
+                );
                 println!("Use --force to confirm deletion");
                 return Ok(());
             }
 
             ctx.storage.delete_project(name).await?;
-            tracing::info!("Deleted project: {} ({} entities, {} relations)", name, entity_count, relation_count);
-            println!("Deleted project: {} ({} entities, {} relations)", name, entity_count, relation_count);
+            tracing::info!(
+                "Deleted project: {} ({} entities, {} relations)",
+                name,
+                entity_count,
+                relation_count
+            );
+            println!(
+                "Deleted project: {} ({} entities, {} relations)",
+                name, entity_count, relation_count
+            );
         }
         ProjectCommands::Stats { name } => {
             let project_name = name.as_deref().unwrap_or(&cli.project);
@@ -141,7 +163,8 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
             let relations = ctx.storage.get_all_relations(&project.id).await?;
 
             // Count entities by type
-            let mut type_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            let mut type_counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
             let mut total_observations = 0;
             let mut total_tags = 0;
 
@@ -152,9 +175,12 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
             }
 
             // Count relations by type
-            let mut rel_type_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            let mut rel_type_counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
             for relation in &relations {
-                *rel_type_counts.entry(relation.relation_type.clone()).or_insert(0) += 1;
+                *rel_type_counts
+                    .entry(relation.relation_type.clone())
+                    .or_insert(0) += 1;
             }
 
             tracing::info!("Stats for project: {}", project_name);

@@ -49,9 +49,10 @@ impl StorageBackend for MemoryStorage {
     // Entity operations
 
     async fn save_entity(&self, entity: &Entity) -> StorageResult<()> {
-        let mut entities = self.entities.write().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let mut entities = self
+            .entities
+            .write()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         entities.insert(
             (entity.project_id.clone(), entity.name.clone()),
             entity.clone(),
@@ -59,17 +60,25 @@ impl StorageBackend for MemoryStorage {
         Ok(())
     }
 
-    async fn get_entity(&self, name: &str, project_id: &ProjectId) -> StorageResult<Option<Entity>> {
-        let entities = self.entities.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
-        Ok(entities.get(&(project_id.clone(), name.to_string())).cloned())
+    async fn get_entity(
+        &self,
+        name: &str,
+        project_id: &ProjectId,
+    ) -> StorageResult<Option<Entity>> {
+        let entities = self
+            .entities
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
+        Ok(entities
+            .get(&(project_id.clone(), name.to_string()))
+            .cloned())
     }
 
     async fn get_all_entities(&self, project_id: &ProjectId) -> StorageResult<Vec<Entity>> {
-        let entities = self.entities.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let entities = self
+            .entities
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         Ok(entities
             .iter()
             .filter(|((pid, _), _)| pid == project_id)
@@ -78,16 +87,18 @@ impl StorageBackend for MemoryStorage {
     }
 
     async fn get_all_entities_all_projects(&self) -> StorageResult<Vec<Entity>> {
-        let entities = self.entities.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let entities = self
+            .entities
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         Ok(entities.values().cloned().collect())
     }
 
     async fn delete_entity(&self, name: &str, project_id: &ProjectId) -> StorageResult<()> {
-        let mut entities = self.entities.write().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let mut entities = self
+            .entities
+            .write()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         entities.remove(&(project_id.clone(), name.to_string()));
         Ok(())
     }
@@ -95,9 +106,10 @@ impl StorageBackend for MemoryStorage {
     // Relation operations
 
     async fn save_relation(&self, relation: &Relation) -> StorageResult<()> {
-        let mut relations = self.relations.write().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let mut relations = self
+            .relations
+            .write()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
 
         // Check for duplicate
         let exists = relations.iter().any(|r| {
@@ -118,9 +130,10 @@ impl StorageBackend for MemoryStorage {
         entity_name: &str,
         project_id: &ProjectId,
     ) -> StorageResult<Vec<Relation>> {
-        let relations = self.relations.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let relations = self
+            .relations
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         Ok(relations
             .iter()
             .filter(|r| {
@@ -132,9 +145,10 @@ impl StorageBackend for MemoryStorage {
     }
 
     async fn get_all_relations(&self, project_id: &ProjectId) -> StorageResult<Vec<Relation>> {
-        let relations = self.relations.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let relations = self
+            .relations
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         Ok(relations
             .iter()
             .filter(|r| r.project_id == *project_id)
@@ -149,9 +163,10 @@ impl StorageBackend for MemoryStorage {
         relation_type: &str,
         project_id: &ProjectId,
     ) -> StorageResult<()> {
-        let mut relations = self.relations.write().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let mut relations = self
+            .relations
+            .write()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         relations.retain(|r| {
             !(r.project_id == *project_id
                 && r.from_name == from
@@ -166,9 +181,10 @@ impl StorageBackend for MemoryStorage {
         entity_name: &str,
         project_id: &ProjectId,
     ) -> StorageResult<()> {
-        let mut relations = self.relations.write().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let mut relations = self
+            .relations
+            .write()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         relations.retain(|r| {
             !(r.project_id == *project_id
                 && (r.from_name == entity_name || r.to_name == entity_name))
@@ -179,64 +195,72 @@ impl StorageBackend for MemoryStorage {
     // Project operations
 
     async fn save_project(&self, project: &Project) -> StorageResult<()> {
-        let mut projects = self.projects.write().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let mut projects = self
+            .projects
+            .write()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         projects.insert(project.name.clone(), project.clone());
         Ok(())
     }
 
     async fn get_project(&self, name: &str) -> StorageResult<Option<Project>> {
-        let projects = self.projects.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let projects = self
+            .projects
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         Ok(projects.get(name).cloned())
     }
 
     async fn get_project_by_id(&self, id: &ProjectId) -> StorageResult<Option<Project>> {
-        let projects = self.projects.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let projects = self
+            .projects
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         Ok(projects.values().find(|p| p.id == *id).cloned())
     }
 
     async fn get_all_projects(&self) -> StorageResult<Vec<Project>> {
-        let projects = self.projects.read().map_err(|e| {
-            StorageError::Database(format!("Lock error: {}", e))
-        })?;
+        let projects = self
+            .projects
+            .read()
+            .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
         Ok(projects.values().cloned().collect())
     }
 
     async fn delete_project(&self, name: &str) -> StorageResult<()> {
         let project = {
-            let projects = self.projects.read().map_err(|e| {
-                StorageError::Database(format!("Lock error: {}", e))
-            })?;
+            let projects = self
+                .projects
+                .read()
+                .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
             projects.get(name).cloned()
         };
 
         if let Some(project) = project {
             // Delete all entities
             {
-                let mut entities = self.entities.write().map_err(|e| {
-                    StorageError::Database(format!("Lock error: {}", e))
-                })?;
+                let mut entities = self
+                    .entities
+                    .write()
+                    .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
                 entities.retain(|(pid, _), _| pid != &project.id);
             }
 
             // Delete all relations
             {
-                let mut relations = self.relations.write().map_err(|e| {
-                    StorageError::Database(format!("Lock error: {}", e))
-                })?;
+                let mut relations = self
+                    .relations
+                    .write()
+                    .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
                 relations.retain(|r| r.project_id != project.id);
             }
 
             // Delete project
             {
-                let mut projects = self.projects.write().map_err(|e| {
-                    StorageError::Database(format!("Lock error: {}", e))
-                })?;
+                let mut projects = self
+                    .projects
+                    .write()
+                    .map_err(|e| StorageError::Database(format!("Lock error: {}", e)))?;
                 projects.remove(name);
             }
         }
@@ -274,15 +298,15 @@ mod tests {
         storage.save_entity(&entity).await.unwrap();
 
         // Retrieve the entity
-        let retrieved = storage
-            .get_entity("TestEntity", &project.id)
-            .await
-            .unwrap();
+        let retrieved = storage.get_entity("TestEntity", &project.id).await.unwrap();
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().name, "TestEntity");
 
         // Delete the entity
-        storage.delete_entity("TestEntity", &project.id).await.unwrap();
+        storage
+            .delete_entity("TestEntity", &project.id)
+            .await
+            .unwrap();
         let retrieved = storage.get_entity("TestEntity", &project.id).await.unwrap();
         assert!(retrieved.is_none());
     }

@@ -207,7 +207,11 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
                 // Get relations for found entities
                 let mut all_relations = Vec::new();
                 for entity in &entities {
-                    if let Ok(rels) = self.storage.get_relations_for_entity(&entity.name, &entity.project_id).await {
+                    if let Ok(rels) = self
+                        .storage
+                        .get_relations_for_entity(&entity.name, &entity.project_id)
+                        .await
+                    {
                         for rel in rels {
                             all_relations.push(RelationOutput {
                                 from: rel.from_name.clone(),
@@ -263,7 +267,8 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
 
         let mut created = Vec::new();
         for input in args.entities {
-            let mut entity = Entity::new(project.id.clone(), &input.name, input.entity_type.as_str());
+            let mut entity =
+                Entity::new(project.id.clone(), &input.name, input.entity_type.as_str());
             for obs in &input.observations {
                 entity.add_observation(obs);
             }
@@ -274,7 +279,10 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
             }
 
             if let Err(e) = self.storage.save_entity(&entity).await {
-                return ToolCallResponse::error(format!("Failed to create entity {}: {}", input.name, e));
+                return ToolCallResponse::error(format!(
+                    "Failed to create entity {}: {}",
+                    input.name, e
+                ));
             }
             created.push(input.name);
         }
@@ -311,10 +319,17 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
 
         let mut updated = Vec::new();
         for input in args.observations {
-            let mut entity = match self.storage.get_entity(&input.entity_name, &project.id).await {
+            let mut entity = match self
+                .storage
+                .get_entity(&input.entity_name, &project.id)
+                .await
+            {
                 Ok(Some(e)) => e,
                 Ok(None) => {
-                    return ToolCallResponse::error(format!("Entity not found: {}", input.entity_name))
+                    return ToolCallResponse::error(format!(
+                        "Entity not found: {}",
+                        input.entity_name
+                    ))
                 }
                 Err(e) => return ToolCallResponse::error(format!("Error: {}", e)),
             };
@@ -364,12 +379,16 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
             // Verify entities exist
             match self.storage.get_entity(&input.from, &project.id).await {
                 Ok(Some(_)) => {}
-                Ok(None) => return ToolCallResponse::error(format!("Entity not found: {}", input.from)),
+                Ok(None) => {
+                    return ToolCallResponse::error(format!("Entity not found: {}", input.from))
+                }
                 Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
             }
             match self.storage.get_entity(&input.to, &project.id).await {
                 Ok(Some(_)) => {}
-                Ok(None) => return ToolCallResponse::error(format!("Entity not found: {}", input.to)),
+                Ok(None) => {
+                    return ToolCallResponse::error(format!("Entity not found: {}", input.to))
+                }
                 Err(e) => return ToolCallResponse::error(format!("Storage error: {}", e)),
             }
 
@@ -383,7 +402,10 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
             if let Err(e) = self.storage.save_relation(&relation).await {
                 return ToolCallResponse::error(format!("Failed to create relation: {}", e));
             }
-            created.push(format!("{} -[{}]-> {}", input.from, input.relation_type, input.to));
+            created.push(format!(
+                "{} -[{}]-> {}",
+                input.from, input.relation_type, input.to
+            ));
         }
 
         ToolCallResponse::json(&serde_json::json!({
@@ -412,7 +434,11 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
         let mut deleted = Vec::new();
         for name in args.entity_names {
             // Delete relations first
-            if let Err(e) = self.storage.delete_relations_for_entity(&name, &project.id).await {
+            if let Err(e) = self
+                .storage
+                .delete_relations_for_entity(&name, &project.id)
+                .await
+            {
                 tracing::warn!("Failed to delete relations for {}: {}", name, e);
             }
 
@@ -454,15 +480,17 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
 
         let mut deleted = Vec::new();
         for input in args.relations {
-            if let Err(e) = self.storage.delete_relation(
-                &input.from,
-                &input.to,
-                &input.relation_type,
-                &project.id,
-            ).await {
+            if let Err(e) = self
+                .storage
+                .delete_relation(&input.from, &input.to, &input.relation_type, &project.id)
+                .await
+            {
                 return ToolCallResponse::error(format!("Failed to delete relation: {}", e));
             }
-            deleted.push(format!("{} -[{}]-> {}", input.from, input.relation_type, input.to));
+            deleted.push(format!(
+                "{} -[{}]-> {}",
+                input.from, input.relation_type, input.to
+            ));
         }
 
         ToolCallResponse::json(&serde_json::json!({
@@ -515,17 +543,25 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
         }
 
         let output = GraphOutput {
-            entities: graph.entities.iter().map(|e| EntityOutput {
-                name: e.name.clone(),
-                entity_type: e.entity_type.0.clone(),
-                observations: e.observations.iter().map(|o| o.content.clone()).collect(),
-                tags: e.tags.clone(),
-            }).collect(),
-            relations: graph.relations.iter().map(|r| RelationOutput {
-                from: r.from_name.clone(),
-                to: r.to_name.clone(),
-                relation_type: r.relation_type.clone(),
-            }).collect(),
+            entities: graph
+                .entities
+                .iter()
+                .map(|e| EntityOutput {
+                    name: e.name.clone(),
+                    entity_type: e.entity_type.0.clone(),
+                    observations: e.observations.iter().map(|o| o.content.clone()).collect(),
+                    tags: e.tags.clone(),
+                })
+                .collect(),
+            relations: graph
+                .relations
+                .iter()
+                .map(|r| RelationOutput {
+                    from: r.from_name.clone(),
+                    to: r.to_name.clone(),
+                    relation_type: r.relation_type.clone(),
+                })
+                .collect(),
         };
 
         ToolCallResponse::json(&output)
@@ -574,7 +610,11 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
                 Err(e) => return ToolCallResponse::error(format!("Error: {}", e)),
             };
 
-            let relations = match self.storage.get_relations_for_entity(&name, &project.id).await {
+            let relations = match self
+                .storage
+                .get_relations_for_entity(&name, &project.id)
+                .await
+            {
                 Ok(r) => r,
                 Err(e) => return ToolCallResponse::error(format!("Error: {}", e)),
             };
@@ -582,13 +622,20 @@ impl<S: StorageBackend + 'static> ToolHandler<S> {
             nodes.push(NodeOutput {
                 name: entity.name.clone(),
                 entity_type: entity.entity_type.0.clone(),
-                observations: entity.observations.iter().map(|o| o.content.clone()).collect(),
+                observations: entity
+                    .observations
+                    .iter()
+                    .map(|o| o.content.clone())
+                    .collect(),
                 tags: entity.tags.clone(),
-                relations: relations.iter().map(|r| RelationOutput {
-                    from: r.from_name.clone(),
-                    to: r.to_name.clone(),
-                    relation_type: r.relation_type.clone(),
-                }).collect(),
+                relations: relations
+                    .iter()
+                    .map(|r| RelationOutput {
+                        from: r.from_name.clone(),
+                        to: r.to_name.clone(),
+                        relation_type: r.relation_type.clone(),
+                    })
+                    .collect(),
             });
         }
 

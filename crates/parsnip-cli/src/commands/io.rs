@@ -324,7 +324,8 @@ fn csv_escape(s: &str) -> String {
 fn export_to_graphml(data: &ExportData) -> String {
     let mut xml = String::new();
 
-    xml.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>
+    xml.push_str(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <graphml xmlns="http://graphml.graphdrawing.org/xmlns"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
@@ -333,7 +334,8 @@ fn export_to_graphml(data: &ExportData) -> String {
   <key id="d1" for="node" attr.name="observations" attr.type="string"/>
   <key id="d2" for="node" attr.name="tags" attr.type="string"/>
   <key id="d3" for="edge" attr.name="type" attr.type="string"/>
-"#);
+"#,
+    );
 
     for project in &data.projects {
         xml.push_str(&format!(
@@ -411,9 +413,7 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
     };
 
     // Read entities from knowledgegraph-mcp
-    let mut stmt = conn.prepare(
-        "SELECT name, entity_type, observations, tags FROM entities"
-    )?;
+    let mut stmt = conn.prepare("SELECT name, entity_type, observations, tags FROM entities")?;
 
     let entities_iter = stmt.query_map([], |row| {
         let name: String = row.get(0)?;
@@ -427,8 +427,8 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
     for entity_result in entities_iter {
         let (name, entity_type, observations_json, tags_json) = entity_result?;
 
-        let observations: Vec<String> = serde_json::from_str(&observations_json)
-            .unwrap_or_default();
+        let observations: Vec<String> =
+            serde_json::from_str(&observations_json).unwrap_or_default();
         let tags: Vec<String> = tags_json
             .map(|t| serde_json::from_str(&t).unwrap_or_default())
             .unwrap_or_default();
@@ -446,9 +446,7 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
     }
 
     // Read relations
-    let mut stmt = conn.prepare(
-        "SELECT from_entity, to_entity, relation_type FROM relations"
-    )?;
+    let mut stmt = conn.prepare("SELECT from_entity, to_entity, relation_type FROM relations")?;
 
     let relations_iter = stmt.query_map([], |row| {
         let from: String = row.get(0)?;

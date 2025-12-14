@@ -7,13 +7,12 @@ use tantivy::{
     collector::TopDocs,
     directory::MmapDirectory,
     query::QueryParser,
-    schema::{Schema, Field, Value, STORED, TEXT, STRING},
-    Index, IndexReader, IndexWriter, TantivyDocument,
-    ReloadPolicy,
+    schema::{Field, Schema, Value, STORED, STRING, TEXT},
+    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument,
 };
 
-use parsnip_core::{Entity, ProjectId, SearchQuery};
 use crate::traits::{Result, SearchEngine, SearchError};
+use parsnip_core::{Entity, ProjectId, SearchQuery};
 
 /// Full-text search engine using Tantivy
 pub struct FullTextSearchEngine {
@@ -32,17 +31,16 @@ pub struct FullTextSearchEngine {
 impl FullTextSearchEngine {
     pub fn new(index_path: &Path) -> Result<Self> {
         let mut schema_builder = Schema::builder();
-        
+
         let entity_id_field = schema_builder.add_text_field("entity_id", STRING | STORED);
         let project_id_field = schema_builder.add_text_field("project_id", STRING | STORED);
         let name_field = schema_builder.add_text_field("name", TEXT | STORED);
         let content_field = schema_builder.add_text_field("content", TEXT);
-        
+
         let schema = schema_builder.build();
 
-        let dir = MmapDirectory::open(index_path)
-            .map_err(|e| SearchError::Index(e.to_string()))?;
-        
+        let dir = MmapDirectory::open(index_path).map_err(|e| SearchError::Index(e.to_string()))?;
+
         let index = Index::open_or_create(dir, schema.clone())
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
@@ -71,12 +69,12 @@ impl FullTextSearchEngine {
     /// Create in-memory index for testing
     pub fn in_memory() -> Result<Self> {
         let mut schema_builder = Schema::builder();
-        
+
         let entity_id_field = schema_builder.add_text_field("entity_id", STRING | STORED);
         let project_id_field = schema_builder.add_text_field("project_id", STRING | STORED);
         let name_field = schema_builder.add_text_field("name", TEXT | STORED);
         let content_field = schema_builder.add_text_field("content", TEXT);
-        
+
         let schema = schema_builder.build();
         let index = Index::create_in_ram(schema.clone());
 
@@ -107,7 +105,7 @@ impl FullTextSearchEngine {
         doc.add_text(self.entity_id_field, entity.id.to_string());
         doc.add_text(self.project_id_field, entity.project_id.to_string());
         doc.add_text(self.name_field, &entity.name);
-        
+
         // Combine all searchable content
         let content: String = std::iter::once(entity.name.as_str())
             .chain(std::iter::once(entity.entity_type.0.as_str()))
@@ -115,7 +113,7 @@ impl FullTextSearchEngine {
             .chain(entity.tags.iter().map(|t| t.as_str()))
             .collect::<Vec<_>>()
             .join(" ");
-        
+
         doc.add_text(self.content_field, content);
         doc
     }
@@ -133,7 +131,8 @@ impl SearchEngine for FullTextSearchEngine {
         self.rebuild_index(entities).await?;
 
         let searcher = self.reader.searcher();
-        let query_parser = QueryParser::for_index(&self.index, vec![self.name_field, self.content_field]);
+        let query_parser =
+            QueryParser::for_index(&self.index, vec![self.name_field, self.content_field]);
 
         let parsed_query = query_parser
             .parse_query(text)
@@ -147,7 +146,8 @@ impl SearchEngine for FullTextSearchEngine {
         // Collect matching entity names
         let mut matching_names = std::collections::HashSet::new();
         for (_score, doc_address) in top_docs {
-            let doc: TantivyDocument = searcher.doc(doc_address)
+            let doc: TantivyDocument = searcher
+                .doc(doc_address)
                 .map_err(|e| SearchError::Internal(e.to_string()))?;
 
             if let Some(name) = doc.get_first(self.name_field).and_then(|v| v.as_str()) {
@@ -156,7 +156,8 @@ impl SearchEngine for FullTextSearchEngine {
         }
 
         // Return matching entities
-        Ok(entities.iter()
+        Ok(entities
+            .iter()
             .filter(|e| matching_names.contains(&e.name))
             .cloned()
             .collect())
@@ -165,58 +166,73 @@ impl SearchEngine for FullTextSearchEngine {
     async fn index_entity(&self, entity: &Entity, _project_id: &ProjectId) -> Result<()> {
         let doc = self.create_document(entity);
 
-        let mut writer = self.writer.write()
+        let mut writer = self
+            .writer
+            .write()
             .map_err(|e| SearchError::Internal(format!("Lock error: {}", e)))?;
 
         // Delete existing document with same entity_id
         let term = tantivy::Term::from_field_text(self.entity_id_field, &entity.id.to_string());
         writer.delete_term(term);
 
-        writer.add_document(doc)
+        writer
+            .add_document(doc)
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
-        writer.commit()
+        writer
+            .commit()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
-        self.reader.reload()
+        self.reader
+            .reload()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
         Ok(())
     }
 
     async fn remove_entity(&self, entity_name: &str, _project_id: &ProjectId) -> Result<()> {
-        let mut writer = self.writer.write()
+        let mut writer = self
+            .writer
+            .write()
             .map_err(|e| SearchError::Internal(format!("Lock error: {}", e)))?;
 
         let term = tantivy::Term::from_field_text(self.name_field, entity_name);
         writer.delete_term(term);
 
-        writer.commit()
+        writer
+            .commit()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
-        self.reader.reload()
+        self.reader
+            .reload()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
         Ok(())
     }
 
     async fn rebuild_index(&self, entities: &[Entity]) -> Result<()> {
-        let mut writer = self.writer.write()
+        let mut writer = self
+            .writer
+            .write()
             .map_err(|e| SearchError::Internal(format!("Lock error: {}", e)))?;
-        
-        writer.delete_all_documents()
+
+        writer
+            .delete_all_documents()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
         for entity in entities {
             let doc = self.create_document(entity);
-            writer.add_document(doc)
+            writer
+                .add_document(doc)
                 .map_err(|e| SearchError::Index(e.to_string()))?;
         }
 
-        writer.commit()
+        writer
+            .commit()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
-        self.reader.reload()
+        self.reader
+            .reload()
             .map_err(|e| SearchError::Index(e.to_string()))?;
 
         Ok(())

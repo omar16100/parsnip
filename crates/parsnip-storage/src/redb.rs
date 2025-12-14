@@ -22,16 +22,20 @@ impl RedbStorage {
     /// Open or create a ReDB database at the given path
     pub fn open(path: impl AsRef<Path>) -> StorageResult<Self> {
         let db = Database::create(path).map_err(|e| StorageError::Database(e.to_string()))?;
-        
+
         // Initialize tables
         {
-            let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
+            let write_txn = db
+                .begin_write()
+                .map_err(|e| StorageError::Database(e.to_string()))?;
             {
                 let _ = write_txn.open_table(ENTITIES);
                 let _ = write_txn.open_table(RELATIONS);
                 let _ = write_txn.open_table(PROJECTS);
             }
-            write_txn.commit().map_err(|e| StorageError::Database(e.to_string()))?;
+            write_txn
+                .commit()
+                .map_err(|e| StorageError::Database(e.to_string()))?;
         }
 
         Ok(Self { db: Mutex::new(db) })
@@ -64,22 +68,36 @@ impl StorageBackend for RedbStorage {
         let key = Self::make_entity_key(&entity.project_id, &entity.name);
         let value = serde_json::to_vec(entity)?;
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         {
             let mut table = write_txn.open_table(ENTITIES)?;
             table.insert(key.as_str(), value.as_slice())?;
         }
         write_txn.commit()?;
-        
+
         Ok(())
     }
 
-    async fn get_entity(&self, name: &str, project_id: &ProjectId) -> StorageResult<Option<Entity>> {
+    async fn get_entity(
+        &self,
+        name: &str,
+        project_id: &ProjectId,
+    ) -> StorageResult<Option<Entity>> {
         let key = Self::make_entity_key(project_id, name);
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(ENTITIES)?;
 
         if let Some(value) = table.get(key.as_str())? {
@@ -93,8 +111,13 @@ impl StorageBackend for RedbStorage {
     async fn get_all_entities(&self, project_id: &ProjectId) -> StorageResult<Vec<Entity>> {
         let prefix = format!("{}:", project_id);
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(ENTITIES)?;
 
         let mut entities = Vec::new();
@@ -110,8 +133,13 @@ impl StorageBackend for RedbStorage {
     }
 
     async fn get_all_entities_all_projects(&self) -> StorageResult<Vec<Entity>> {
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(ENTITIES)?;
 
         let mut entities = Vec::new();
@@ -127,8 +155,13 @@ impl StorageBackend for RedbStorage {
     async fn delete_entity(&self, name: &str, project_id: &ProjectId) -> StorageResult<()> {
         let key = Self::make_entity_key(project_id, name);
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         {
             let mut table = write_txn.open_table(ENTITIES)?;
             table.remove(key.as_str())?;
@@ -147,8 +180,13 @@ impl StorageBackend for RedbStorage {
         );
         let value = serde_json::to_vec(relation)?;
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         {
             let mut table = write_txn.open_table(RELATIONS)?;
             table.insert(key.as_str(), value.as_slice())?;
@@ -163,8 +201,13 @@ impl StorageBackend for RedbStorage {
         entity_name: &str,
         project_id: &ProjectId,
     ) -> StorageResult<Vec<Relation>> {
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(RELATIONS)?;
 
         let prefix = format!("{}:", project_id);
@@ -186,8 +229,13 @@ impl StorageBackend for RedbStorage {
     async fn get_all_relations(&self, project_id: &ProjectId) -> StorageResult<Vec<Relation>> {
         let prefix = format!("{}:", project_id);
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(RELATIONS)?;
 
         let mut relations = Vec::new();
@@ -211,8 +259,13 @@ impl StorageBackend for RedbStorage {
     ) -> StorageResult<()> {
         let key = Self::make_relation_key(project_id, from, to, relation_type);
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         {
             let mut table = write_txn.open_table(RELATIONS)?;
             table.remove(key.as_str())?;
@@ -229,9 +282,14 @@ impl StorageBackend for RedbStorage {
     ) -> StorageResult<()> {
         let prefix = format!("{}:", project_id);
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
-        
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
         let keys_to_delete: Vec<String> = {
             let table = write_txn.open_table(RELATIONS)?;
             let mut keys = Vec::new();
@@ -261,8 +319,13 @@ impl StorageBackend for RedbStorage {
     async fn save_project(&self, project: &Project) -> StorageResult<()> {
         let value = serde_json::to_vec(project)?;
 
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         {
             let mut table = write_txn.open_table(PROJECTS)?;
             table.insert(project.name.as_str(), value.as_slice())?;
@@ -273,8 +336,13 @@ impl StorageBackend for RedbStorage {
     }
 
     async fn get_project(&self, name: &str) -> StorageResult<Option<Project>> {
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(PROJECTS)?;
 
         if let Some(value) = table.get(name)? {
@@ -286,8 +354,13 @@ impl StorageBackend for RedbStorage {
     }
 
     async fn get_project_by_id(&self, id: &ProjectId) -> StorageResult<Option<Project>> {
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(PROJECTS)?;
 
         for entry in table.iter()? {
@@ -302,8 +375,13 @@ impl StorageBackend for RedbStorage {
     }
 
     async fn get_all_projects(&self) -> StorageResult<Vec<Project>> {
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let read_txn = db.begin_read().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let read_txn = db
+            .begin_read()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let table = read_txn.open_table(PROJECTS)?;
 
         let mut projects = Vec::new();
@@ -336,12 +414,18 @@ impl StorageBackend for RedbStorage {
                 &relation.to_name,
                 &relation.relation_type,
                 &project.id,
-            ).await?;
+            )
+            .await?;
         }
 
         // Delete the project itself
-        let db = self.db.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        let write_txn = db.begin_write().map_err(|e| StorageError::Database(e.to_string()))?;
+        let db = self
+            .db
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let write_txn = db
+            .begin_write()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         {
             let mut table = write_txn.open_table(PROJECTS)?;
             table.remove(name)?;
@@ -371,7 +455,7 @@ mod tests {
     async fn test_redb_storage() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("test.redb");
-        
+
         let storage = RedbStorage::open(&db_path).unwrap();
         storage.initialize().await.unwrap();
 
@@ -389,7 +473,10 @@ mod tests {
         assert_eq!(retrieved.unwrap().name, "TestEntity");
 
         // Delete the entity
-        storage.delete_entity("TestEntity", &project.id).await.unwrap();
+        storage
+            .delete_entity("TestEntity", &project.id)
+            .await
+            .unwrap();
         let retrieved = storage.get_entity("TestEntity", &project.id).await.unwrap();
         assert!(retrieved.is_none());
     }

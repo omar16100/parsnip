@@ -24,7 +24,8 @@ pub trait StorageBackend: Send + Sync {
     async fn save_entity(&self, entity: &Entity) -> StorageResult<()>;
 
     /// Get an entity by name and project
-    async fn get_entity(&self, name: &str, project_id: &ProjectId) -> StorageResult<Option<Entity>>;
+    async fn get_entity(&self, name: &str, project_id: &ProjectId)
+        -> StorageResult<Option<Entity>>;
 
     /// Get all entities for a project
     async fn get_all_entities(&self, project_id: &ProjectId) -> StorageResult<Vec<Entity>>;
@@ -95,7 +96,10 @@ pub trait StorageBackend: Send + Sync {
     async fn load_graph(&self, project_id: &ProjectId) -> StorageResult<Graph> {
         let entities = self.get_all_entities(project_id).await?;
         let relations = self.get_all_relations(project_id).await?;
-        Ok(Graph { entities, relations })
+        Ok(Graph {
+            entities,
+            relations,
+        })
     }
 
     /// Save entire graph for a project (replaces existing)

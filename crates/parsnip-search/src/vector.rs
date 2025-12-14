@@ -2,9 +2,9 @@
 
 use async_trait::async_trait;
 
-use parsnip_core::{Entity, ProjectScope, SearchQuery, TagMatchMode};
 use crate::error::SearchResult;
 use crate::traits::SearchEngine;
+use parsnip_core::{Entity, ProjectScope, SearchQuery, TagMatchMode};
 
 /// Stateless vector search engine using cosine similarity
 pub struct VectorSearchEngine {
@@ -53,9 +53,7 @@ impl VectorSearchEngine {
         }
 
         // Check entity type filter
-        if !query.entity_types.is_empty()
-            && !query.entity_types.contains(&entity.entity_type.0)
-        {
+        if !query.entity_types.is_empty() && !query.entity_types.contains(&entity.entity_type.0) {
             return false;
         }
 
@@ -82,11 +80,7 @@ impl Default for VectorSearchEngine {
 
 #[async_trait]
 impl SearchEngine for VectorSearchEngine {
-    async fn search(
-        &self,
-        query: &SearchQuery,
-        entities: &[Entity],
-    ) -> SearchResult<Vec<Entity>> {
+    async fn search(&self, query: &SearchQuery, entities: &[Entity]) -> SearchResult<Vec<Entity>> {
         let query_embedding = match &query.query_embedding {
             Some(emb) if !emb.is_empty() => emb,
             _ => {
@@ -252,18 +246,25 @@ mod tests {
     #[tokio::test]
     async fn test_cosine_similarity() {
         // Identical vectors
-        assert!((VectorSearchEngine::cosine_similarity(&[1.0, 0.0], &[1.0, 0.0]) - 1.0).abs() < 0.001);
+        assert!(
+            (VectorSearchEngine::cosine_similarity(&[1.0, 0.0], &[1.0, 0.0]) - 1.0).abs() < 0.001
+        );
 
         // Orthogonal vectors
         assert!((VectorSearchEngine::cosine_similarity(&[1.0, 0.0], &[0.0, 1.0])).abs() < 0.001);
 
         // Opposite vectors
-        assert!((VectorSearchEngine::cosine_similarity(&[1.0, 0.0], &[-1.0, 0.0]) + 1.0).abs() < 0.001);
+        assert!(
+            (VectorSearchEngine::cosine_similarity(&[1.0, 0.0], &[-1.0, 0.0]) + 1.0).abs() < 0.001
+        );
 
         // Empty vectors
         assert_eq!(VectorSearchEngine::cosine_similarity(&[], &[]), 0.0);
 
         // Mismatched lengths
-        assert_eq!(VectorSearchEngine::cosine_similarity(&[1.0], &[1.0, 0.0]), 0.0);
+        assert_eq!(
+            VectorSearchEngine::cosine_similarity(&[1.0], &[1.0, 0.0]),
+            0.0
+        );
     }
 }

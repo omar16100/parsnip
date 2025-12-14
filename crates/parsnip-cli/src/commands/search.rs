@@ -55,7 +55,11 @@ async fn get_project_id(project_name: &str, ctx: &AppContext) -> anyhow::Result<
 }
 
 pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Result<()> {
-    let scope = if args.all_projects { "all projects" } else { &cli.project };
+    let scope = if args.all_projects {
+        "all projects"
+    } else {
+        &cli.project
+    };
 
     // Build search query
     let mut query = if let Some(ref q) = args.query {
@@ -85,7 +89,9 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
     query = query.with_mode(mode);
 
     if args.fuzzy {
-        query = query.with_mode(SearchMode::Fuzzy).with_fuzzy_threshold(args.threshold);
+        query = query
+            .with_mode(SearchMode::Fuzzy)
+            .with_fuzzy_threshold(args.threshold);
     }
 
     // Set project scope
@@ -135,15 +141,29 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
 
     let display_results: Vec<_> = results.into_iter().take(args.limit).collect();
 
-    tracing::info!("Search returned {} results in {}", display_results.len(), scope);
+    tracing::info!(
+        "Search returned {} results in {}",
+        display_results.len(),
+        scope
+    );
 
     if display_results.is_empty() {
         println!("No results found in {}", scope);
     } else {
         if let Some(ref q) = args.query {
-            println!("Search results for '{}' in {} ({} found):", q, scope, display_results.len());
+            println!(
+                "Search results for '{}' in {} ({} found):",
+                q,
+                scope,
+                display_results.len()
+            );
         } else {
-            println!("Search results for tags {:?} in {} ({} found):", args.tag, scope, display_results.len());
+            println!(
+                "Search results for tags {:?} in {} ({} found):",
+                args.tag,
+                scope,
+                display_results.len()
+            );
         }
 
         for entity in &display_results {
@@ -152,11 +172,7 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
             } else {
                 format!(" [{}]", entity.tags.join(", "))
             };
-            println!("  {} ({}){}",
-                entity.name,
-                entity.entity_type.0,
-                tags
-            );
+            println!("  {} ({}){}", entity.name, entity.entity_type.0, tags);
 
             if args.include_relations {
                 let project_id = &entity.project_id;

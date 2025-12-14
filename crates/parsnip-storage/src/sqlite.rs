@@ -18,7 +18,9 @@ impl SqliteStorage {
     pub fn open(path: impl AsRef<Path>) -> StorageResult<Self> {
         let conn = Connection::open(path).map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let storage = Self { conn: Mutex::new(conn) };
+        let storage = Self {
+            conn: Mutex::new(conn),
+        };
         storage.init_tables()?;
 
         Ok(storage)
@@ -26,16 +28,22 @@ impl SqliteStorage {
 
     /// Create an in-memory SQLite database (for testing)
     pub fn in_memory() -> StorageResult<Self> {
-        let conn = Connection::open_in_memory().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn =
+            Connection::open_in_memory().map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let storage = Self { conn: Mutex::new(conn) };
+        let storage = Self {
+            conn: Mutex::new(conn),
+        };
         storage.init_tables()?;
 
         Ok(storage)
     }
 
     fn init_tables(&self) -> StorageResult<()> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         conn.execute_batch(
             r#"
@@ -64,8 +72,9 @@ impl SqliteStorage {
             CREATE INDEX IF NOT EXISTS idx_relations_project ON relations(project_id);
             CREATE INDEX IF NOT EXISTS idx_relations_from ON relations(project_id, from_name);
             CREATE INDEX IF NOT EXISTS idx_relations_to ON relations(project_id, to_name);
-            "#
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+            "#,
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(())
     }
@@ -82,29 +91,44 @@ impl StorageBackend for SqliteStorage {
     }
 
     async fn health_check(&self) -> StorageResult<bool> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-        conn.execute("SELECT 1", []).map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        conn.execute("SELECT 1", [])
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         Ok(true)
     }
 
     async fn save_entity(&self, entity: &Entity) -> StorageResult<()> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let data = serde_json::to_string(entity)?;
 
         conn.execute(
             "INSERT OR REPLACE INTO entities (project_id, name, data) VALUES (?1, ?2, ?3)",
-            params![entity.project_id.to_string(), entity.name, data]
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+            params![entity.project_id.to_string(), entity.name, data],
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn get_entity(&self, name: &str, project_id: &ProjectId) -> StorageResult<Option<Entity>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+    async fn get_entity(
+        &self,
+        name: &str,
+        project_id: &ProjectId,
+    ) -> StorageResult<Option<Entity>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let mut stmt = conn.prepare(
-            "SELECT data FROM entities WHERE project_id = ?1 AND name = ?2"
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT data FROM entities WHERE project_id = ?1 AND name = ?2")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let result = stmt.query_row(params![project_id.to_string(), name], |row| {
             let data: String = row.get(0)?;
@@ -122,16 +146,21 @@ impl StorageBackend for SqliteStorage {
     }
 
     async fn get_all_entities(&self, project_id: &ProjectId) -> StorageResult<Vec<Entity>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let mut stmt = conn.prepare(
-            "SELECT data FROM entities WHERE project_id = ?1"
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT data FROM entities WHERE project_id = ?1")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let rows = stmt.query_map(params![project_id.to_string()], |row| {
-            let data: String = row.get(0)?;
-            Ok(data)
-        }).map_err(|e| StorageError::Database(e.to_string()))?;
+        let rows = stmt
+            .query_map(params![project_id.to_string()], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let mut entities = Vec::new();
         for row in rows {
@@ -144,15 +173,21 @@ impl StorageBackend for SqliteStorage {
     }
 
     async fn get_all_entities_all_projects(&self) -> StorageResult<Vec<Entity>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-
-        let mut stmt = conn.prepare("SELECT data FROM entities")
+        let conn = self
+            .conn
+            .lock()
             .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let rows = stmt.query_map([], |row| {
-            let data: String = row.get(0)?;
-            Ok(data)
-        }).map_err(|e| StorageError::Database(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT data FROM entities")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let mut entities = Vec::new();
         for row in rows {
@@ -165,18 +200,25 @@ impl StorageBackend for SqliteStorage {
     }
 
     async fn delete_entity(&self, name: &str, project_id: &ProjectId) -> StorageResult<()> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         conn.execute(
             "DELETE FROM entities WHERE project_id = ?1 AND name = ?2",
-            params![project_id.to_string(), name]
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+            params![project_id.to_string(), name],
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(())
     }
 
     async fn save_relation(&self, relation: &Relation) -> StorageResult<()> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let data = serde_json::to_string(relation)?;
 
         conn.execute(
@@ -198,16 +240,21 @@ impl StorageBackend for SqliteStorage {
         entity_name: &str,
         project_id: &ProjectId,
     ) -> StorageResult<Vec<Relation>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let mut stmt = conn.prepare(
             "SELECT data FROM relations WHERE project_id = ?1 AND (from_name = ?2 OR to_name = ?2)"
         ).map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let rows = stmt.query_map(params![project_id.to_string(), entity_name], |row| {
-            let data: String = row.get(0)?;
-            Ok(data)
-        }).map_err(|e| StorageError::Database(e.to_string()))?;
+        let rows = stmt
+            .query_map(params![project_id.to_string(), entity_name], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let mut relations = Vec::new();
         for row in rows {
@@ -220,16 +267,21 @@ impl StorageBackend for SqliteStorage {
     }
 
     async fn get_all_relations(&self, project_id: &ProjectId) -> StorageResult<Vec<Relation>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let mut stmt = conn.prepare(
-            "SELECT data FROM relations WHERE project_id = ?1"
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT data FROM relations WHERE project_id = ?1")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let rows = stmt.query_map(params![project_id.to_string()], |row| {
-            let data: String = row.get(0)?;
-            Ok(data)
-        }).map_err(|e| StorageError::Database(e.to_string()))?;
+        let rows = stmt
+            .query_map(params![project_id.to_string()], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let mut relations = Vec::new();
         for row in rows {
@@ -248,7 +300,10 @@ impl StorageBackend for SqliteStorage {
         relation_type: &str,
         project_id: &ProjectId,
     ) -> StorageResult<()> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         conn.execute(
             "DELETE FROM relations WHERE project_id = ?1 AND from_name = ?2 AND to_name = ?3 AND relation_type = ?4",
@@ -263,32 +318,44 @@ impl StorageBackend for SqliteStorage {
         entity_name: &str,
         project_id: &ProjectId,
     ) -> StorageResult<()> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         conn.execute(
             "DELETE FROM relations WHERE project_id = ?1 AND (from_name = ?2 OR to_name = ?2)",
-            params![project_id.to_string(), entity_name]
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+            params![project_id.to_string(), entity_name],
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(())
     }
 
     async fn save_project(&self, project: &Project) -> StorageResult<()> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
         let data = serde_json::to_string(project)?;
 
         conn.execute(
             "INSERT OR REPLACE INTO projects (name, data) VALUES (?1, ?2)",
-            params![project.name, data]
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+            params![project.name, data],
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(())
     }
 
     async fn get_project(&self, name: &str) -> StorageResult<Option<Project>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let mut stmt = conn.prepare("SELECT data FROM projects WHERE name = ?1")
+        let mut stmt = conn
+            .prepare("SELECT data FROM projects WHERE name = ?1")
             .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let result = stmt.query_row(params![name], |row| {
@@ -307,15 +374,21 @@ impl StorageBackend for SqliteStorage {
     }
 
     async fn get_project_by_id(&self, id: &ProjectId) -> StorageResult<Option<Project>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-
-        let mut stmt = conn.prepare("SELECT data FROM projects")
+        let conn = self
+            .conn
+            .lock()
             .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let rows = stmt.query_map([], |row| {
-            let data: String = row.get(0)?;
-            Ok(data)
-        }).map_err(|e| StorageError::Database(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT data FROM projects")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         for row in rows {
             let data = row.map_err(|e| StorageError::Database(e.to_string()))?;
@@ -329,15 +402,21 @@ impl StorageBackend for SqliteStorage {
     }
 
     async fn get_all_projects(&self) -> StorageResult<Vec<Project>> {
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
-
-        let mut stmt = conn.prepare("SELECT data FROM projects")
+        let conn = self
+            .conn
+            .lock()
             .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        let rows = stmt.query_map([], |row| {
-            let data: String = row.get(0)?;
-            Ok(data)
-        }).map_err(|e| StorageError::Database(e.to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT data FROM projects")
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                let data: String = row.get(0)?;
+                Ok(data)
+            })
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         let mut projects = Vec::new();
         for row in rows {
@@ -356,24 +435,27 @@ impl StorageBackend for SqliteStorage {
             None => return Ok(()),
         };
 
-        let conn = self.conn.lock().map_err(|e| StorageError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         // Delete all entities and relations for this project
         conn.execute(
             "DELETE FROM entities WHERE project_id = ?1",
-            params![project.id.to_string()]
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+            params![project.id.to_string()],
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         conn.execute(
             "DELETE FROM relations WHERE project_id = ?1",
-            params![project.id.to_string()]
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+            params![project.id.to_string()],
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         // Delete the project itself
-        conn.execute(
-            "DELETE FROM projects WHERE name = ?1",
-            params![name]
-        ).map_err(|e| StorageError::Database(e.to_string()))?;
+        conn.execute("DELETE FROM projects WHERE name = ?1", params![name])
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(())
     }
@@ -412,7 +494,10 @@ mod tests {
         assert_eq!(retrieved.unwrap().name, "TestEntity");
 
         // Delete the entity
-        storage.delete_entity("TestEntity", &project.id).await.unwrap();
+        storage
+            .delete_entity("TestEntity", &project.id)
+            .await
+            .unwrap();
         let retrieved = storage.get_entity("TestEntity", &project.id).await.unwrap();
         assert!(retrieved.is_none());
     }
@@ -424,15 +509,13 @@ mod tests {
         let project = Project::new("test");
         storage.save_project(&project).await.unwrap();
 
-        let relation = Relation::from_names(
-            project.id.clone(),
-            "John",
-            "Google",
-            "works_at",
-        );
+        let relation = Relation::from_names(project.id.clone(), "John", "Google", "works_at");
         storage.save_relation(&relation).await.unwrap();
 
-        let relations = storage.get_relations_for_entity("John", &project.id).await.unwrap();
+        let relations = storage
+            .get_relations_for_entity("John", &project.id)
+            .await
+            .unwrap();
         assert_eq!(relations.len(), 1);
         assert_eq!(relations[0].relation_type, "works_at");
     }

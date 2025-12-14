@@ -24,7 +24,11 @@ use parsnip_search::FullTextSearchEngine;
 
 #[derive(Parser)]
 #[command(name = "parsnip")]
-#[command(author, version, about = "Memory management platform for AI assistants")]
+#[command(
+    author,
+    version,
+    about = "Memory management platform for AI assistants"
+)]
 pub struct Cli {
     /// Project namespace
     #[arg(short, long, default_value = "default", global = true)]

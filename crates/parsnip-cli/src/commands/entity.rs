@@ -96,7 +96,12 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
     tracing::debug!("Running entity command for project: {}", cli.project);
 
     match &args.command {
-        EntityCommands::Add { name, r#type, obs, tag } => {
+        EntityCommands::Add {
+            name,
+            r#type,
+            obs,
+            tag,
+        } => {
             let project_id = get_project_id(&cli.project, ctx).await?;
 
             let mut entity = Entity::new(project_id, name, r#type.as_str());
@@ -131,7 +136,11 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
                         }
                     }
                     if let Some(t) = tag {
-                        if !e.tags.iter().any(|et| et.to_lowercase() == t.to_lowercase()) {
+                        if !e
+                            .tags
+                            .iter()
+                            .any(|et| et.to_lowercase() == t.to_lowercase())
+                        {
                             return false;
                         }
                     }
@@ -145,18 +154,18 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
             if filtered.is_empty() {
                 println!("No entities found in project '{}'", cli.project);
             } else {
-                println!("Entities in project '{}' ({} found):", cli.project, filtered.len());
+                println!(
+                    "Entities in project '{}' ({} found):",
+                    cli.project,
+                    filtered.len()
+                );
                 for entity in &filtered {
                     let tags = if entity.tags.is_empty() {
                         String::new()
                     } else {
                         format!(" [{}]", entity.tags.join(", "))
                     };
-                    println!("  {} ({}){}",
-                        entity.name,
-                        entity.entity_type.0,
-                        tags
-                    );
+                    println!("  {} ({}){}", entity.name, entity.entity_type.0, tags);
                 }
             }
         }

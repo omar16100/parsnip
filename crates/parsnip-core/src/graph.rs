@@ -74,12 +74,8 @@ pub trait KnowledgeGraph: Send + Sync {
     async fn add_tags(&self, name: &str, tags: Vec<String>, project: &ProjectId) -> Result<Entity>;
 
     /// Remove tags from an entity
-    async fn remove_tags(
-        &self,
-        name: &str,
-        tags: &[String],
-        project: &ProjectId,
-    ) -> Result<Entity>;
+    async fn remove_tags(&self, name: &str, tags: &[String], project: &ProjectId)
+        -> Result<Entity>;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Relation Operations
@@ -158,9 +154,7 @@ mod tests {
 
     #[test]
     fn test_graph_builder() {
-        let graph = Graph::new()
-            .with_entities(vec![])
-            .with_relations(vec![]);
+        let graph = Graph::new().with_entities(vec![]).with_relations(vec![]);
 
         assert!(graph.entities.is_empty());
         assert!(graph.relations.is_empty());

@@ -6,9 +6,9 @@ use nucleo_matcher::{
     Config, Matcher,
 };
 
-use parsnip_core::{Entity, ProjectScope, SearchQuery, TagMatchMode};
 use crate::error::SearchResult;
 use crate::traits::SearchEngine;
+use parsnip_core::{Entity, ProjectScope, SearchQuery, TagMatchMode};
 
 /// Stateless fuzzy search engine using nucleo
 pub struct FuzzySearchEngine {
@@ -44,7 +44,10 @@ impl FuzzySearchEngine {
 
         let searchable = Self::create_searchable(entity);
         let mut buf = Vec::new();
-        pat.score(nucleo_matcher::Utf32Str::new(&searchable, &mut buf), matcher)
+        pat.score(
+            nucleo_matcher::Utf32Str::new(&searchable, &mut buf),
+            matcher,
+        )
     }
 
     fn matches_filters(entity: &Entity, query: &SearchQuery) -> bool {
@@ -60,9 +63,7 @@ impl FuzzySearchEngine {
         }
 
         // Check entity type filter
-        if !query.entity_types.is_empty()
-            && !query.entity_types.contains(&entity.entity_type.0)
-        {
+        if !query.entity_types.is_empty() && !query.entity_types.contains(&entity.entity_type.0) {
             return false;
         }
 
@@ -89,11 +90,7 @@ impl Default for FuzzySearchEngine {
 
 #[async_trait]
 impl SearchEngine for FuzzySearchEngine {
-    async fn search(
-        &self,
-        query: &SearchQuery,
-        entities: &[Entity],
-    ) -> SearchResult<Vec<Entity>> {
+    async fn search(&self, query: &SearchQuery, entities: &[Entity]) -> SearchResult<Vec<Entity>> {
         let search_text = match &query.text {
             Some(t) if !t.is_empty() => t,
             _ => {

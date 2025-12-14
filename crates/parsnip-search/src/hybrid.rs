@@ -4,10 +4,10 @@ use async_trait::async_trait;
 use std::collections::HashSet;
 use std::path::Path;
 
-use parsnip_core::{Entity, ProjectId, SearchQuery, SearchMode};
-use crate::fuzzy::FuzzySearchEngine;
 use crate::fulltext::FullTextSearchEngine;
+use crate::fuzzy::FuzzySearchEngine;
 use crate::traits::{Result, SearchEngine};
+use parsnip_core::{Entity, ProjectId, SearchMode, SearchQuery};
 
 /// Hybrid search engine combining fuzzy and full-text search
 pub struct HybridSearchEngine {
@@ -39,12 +39,8 @@ impl SearchEngine for HybridSearchEngine {
                 // For exact mode, use fulltext with exact matching
                 self.fulltext.search(query, entities).await
             }
-            SearchMode::Fuzzy => {
-                self.fuzzy.search(query, entities).await
-            }
-            SearchMode::FullText => {
-                self.fulltext.search(query, entities).await
-            }
+            SearchMode::Fuzzy => self.fuzzy.search(query, entities).await,
+            SearchMode::FullText => self.fulltext.search(query, entities).await,
             SearchMode::Hybrid => {
                 // Combine results from both engines
                 let fuzzy_results = self.fuzzy.search(query, entities).await?;
