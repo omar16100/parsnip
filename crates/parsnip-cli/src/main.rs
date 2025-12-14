@@ -10,7 +10,7 @@ mod commands;
 mod config;
 mod output;
 
-use commands::{entity, io, project, relation, search};
+use commands::{completions, config, entity, io, project, relation, search};
 use parsnip_mcp::McpServer;
 
 #[cfg(feature = "redb")]
@@ -80,6 +80,10 @@ pub enum Commands {
     Export(io::ExportArgs),
     /// Start MCP server
     Serve(ServeArgs),
+    /// Manage configuration
+    Config(config::ConfigArgs),
+    /// Generate shell completions
+    Completions(completions::CompletionsArgs),
 }
 
 /// Arguments for the serve command
@@ -205,6 +209,8 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+        Commands::Config(args) => config::run(args).await?,
+        Commands::Completions(args) => completions::run(args)?,
     }
 
     Ok(())

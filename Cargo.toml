@@ -13,16 +13,16 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/parsnip-ai/parsnip"
-homepage = "https://github.com/parsnip-ai/parsnip"
+repository = "https://github.com/omar16100/parsnip"
+homepage = "https://github.com/omar16100/parsnip"
 authors = ["Parsnip Contributors"]
 
 [workspace.dependencies]
 # Internal crates
-parsnip-core = { path = "crates/parsnip-core" }
-parsnip-storage = { path = "crates/parsnip-storage" }
-parsnip-search = { path = "crates/parsnip-search" }
-parsnip-mcp = { path = "crates/parsnip-mcp" }
+parsnip-core = { version = "0.1.0", path = "crates/parsnip-core" }
+parsnip-storage = { version = "0.1.0", path = "crates/parsnip-storage" }
+parsnip-search = { version = "0.1.0", path = "crates/parsnip-search" }
+parsnip-mcp = { version = "0.1.0", path = "crates/parsnip-mcp" }
 
 # Async Runtime
 tokio = { version = "1.40", features = ["full"] }

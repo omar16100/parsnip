@@ -240,5 +240,13 @@ pub fn get_tools() -> Vec<Tool> {
                 }
             }),
         },
+        Tool {
+            name: "list_projects",
+            description: "List all projects with entity and relation counts.",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {}
+            }),
+        },
     ]
 }

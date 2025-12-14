@@ -60,6 +60,23 @@ pub enum EntityCommands {
         /// Observation content
         content: String,
     },
+    /// Update an existing entity
+    Update {
+        /// Entity name
+        name: String,
+        /// Add observations
+        #[arg(long = "add-obs")]
+        add_obs: Vec<String>,
+        /// Add tags
+        #[arg(long = "add-tag")]
+        add_tag: Vec<String>,
+        /// Remove tags
+        #[arg(long = "remove-tag")]
+        remove_tag: Vec<String>,
+        /// Set entity type
+        #[arg(long = "set-type")]
+        set_type: Option<String>,
+    },
 }
 
 async fn get_project_id(project_name: &str, ctx: &AppContext) -> anyhow::Result<ProjectId> {
@@ -198,6 +215,64 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
                     ctx.storage.save_entity(&entity).await?;
                     tracing::info!("Added observation to entity: {}", name);
                     println!("Added observation to {}: {}", name, content);
+                }
+                None => {
+                    println!("Entity '{}' not found in project '{}'", name, cli.project);
+                }
+            }
+        }
+        EntityCommands::Update {
+            name,
+            add_obs,
+            add_tag,
+            remove_tag,
+            set_type,
+        } => {
+            let project_id = get_project_id(&cli.project, ctx).await?;
+
+            match ctx.storage.get_entity(name, &project_id).await? {
+                Some(mut entity) => {
+                    let mut changes = Vec::new();
+
+                    // Add observations
+                    for obs in add_obs {
+                        entity.add_observation(obs);
+                        changes.push(format!("added observation: {}", obs));
+                    }
+
+                    // Add tags
+                    for tag in add_tag {
+                        entity.add_tag(tag);
+                        changes.push(format!("added tag: {}", tag));
+                    }
+
+                    // Remove tags
+                    for tag in remove_tag {
+                        if entity.remove_tag(tag) {
+                            changes.push(format!("removed tag: {}", tag));
+                        } else {
+                            println!("Tag '{}' not found on entity", tag);
+                        }
+                    }
+
+                    // Set type
+                    if let Some(new_type) = set_type {
+                        entity.entity_type = parsnip_core::EntityType::new(new_type);
+                        changes.push(format!("set type: {}", new_type));
+                    }
+
+                    if changes.is_empty() {
+                        println!("No changes specified");
+                        return Ok(());
+                    }
+
+                    ctx.storage.save_entity(&entity).await?;
+                    tracing::info!("Updated entity '{}': {:?}", name, changes);
+
+                    println!("Updated entity '{}':", name);
+                    for change in &changes {
+                        println!("  - {}", change);
+                    }
                 }
                 None => {
                     println!("Entity '{}' not found in project '{}'", name, cli.project);

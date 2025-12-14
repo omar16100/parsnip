@@ -93,9 +93,14 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
                 return Ok(());
             }
 
-            tracing::info!("Switching to project: {}", name);
-            println!("To use project '{}', run commands with: parsnip -p {}", name, name);
-            println!("Or set PARSNIP_PROJECT={} in your environment", name);
+            // Save to config file
+            let mut config = crate::config::Config::load();
+            config.default_project = name.clone();
+            config.save()?;
+
+            tracing::info!("Set default project to: {}", name);
+            println!("Default project set to: {}", name);
+            println!("Config saved to: {}", crate::config::config_file_path().display());
         }
         ProjectCommands::Delete { name, force } => {
             // Check if project exists
