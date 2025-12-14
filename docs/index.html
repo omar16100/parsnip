@@ -166,6 +166,45 @@
       opacity: 1;
     }
 
+    /* Install tabs */
+    .install-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .install-tab {
+      background: transparent;
+      border: 1px solid rgba(232, 169, 76, 0.3);
+      color: var(--cream-dim);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .install-tab:hover {
+      border-color: var(--amber);
+      color: var(--cream);
+    }
+
+    .install-tab.active {
+      background: var(--amber-glow);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .install-content {
+      display: none;
+    }
+
+    .install-content.active {
+      display: block;
+    }
+
     .scroll-hint {
       position: absolute;
       bottom: 40px;
@@ -672,9 +711,28 @@
       <h1 class="logo">p<span>a</span>rsnip</h1>
       <p class="tagline">A local-first memory graph for AI assistants and knowledge workers</p>
       <div class="hero-install">
-        <div class="install-box" onclick="copyInstall()">
-          <span class="copy-hint">click to copy</span>
-          <code>cargo install parsnip</code>
+        <div class="install-tabs">
+          <button class="install-tab active" onclick="switchTab('shell')">Shell</button>
+          <button class="install-tab" onclick="switchTab('cargo')">Cargo</button>
+          <button class="install-tab" onclick="switchTab('homebrew')">Homebrew</button>
+        </div>
+        <div id="install-shell" class="install-content active">
+          <div class="install-box" onclick="copyCommand('shell')">
+            <span class="copy-hint">click to copy</span>
+            <code>curl -fsSL parsnip.sh/install | sh</code>
+          </div>
+        </div>
+        <div id="install-cargo" class="install-content">
+          <div class="install-box" onclick="copyCommand('cargo')">
+            <span class="copy-hint">click to copy</span>
+            <code>cargo install parsnip-cli</code>
+          </div>
+        </div>
+        <div id="install-homebrew" class="install-content">
+          <div class="install-box" onclick="copyCommand('homebrew')">
+            <span class="copy-hint">click to copy</span>
+            <code>brew install omar16100/tap/parsnip</code>
+          </div>
         </div>
       </div>
     </div>
@@ -1055,9 +1113,25 @@
   </footer>
 
   <script>
-    function copyInstall() {
-      navigator.clipboard.writeText('cargo install parsnip');
-      const hint = document.querySelector('.install-box .copy-hint');
+    const installCommands = {
+      shell: 'curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh',
+      cargo: 'cargo install parsnip-cli',
+      homebrew: 'brew install omar16100/tap/parsnip'
+    };
+
+    function switchTab(tab) {
+      // Update tabs
+      document.querySelectorAll('.install-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.install-tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+      // Update content
+      document.querySelectorAll('.install-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(`install-${tab}`).classList.add('active');
+    }
+
+    function copyCommand(tab) {
+      navigator.clipboard.writeText(installCommands[tab]);
+      const hint = document.querySelector(`#install-${tab} .copy-hint`);
       hint.textContent = 'copied!';
       hint.style.opacity = '1';
       hint.style.color = '#8ecf9d';
