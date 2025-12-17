@@ -1,0 +1,114 @@
+# Parsnip
+
+> A local-first graph database for AI assistants and knowledge workers. Store facts as entities and relations with fast search, graph traversal, and MCP integration. Single binary, zero external dependencies, completely offline.
+
+Parsnip is a Rust-based knowledge graph that runs entirely on your machine. It stores structured knowledge as entities (people, concepts, projects) connected by typed relations (works_at, reports_to, depends_on). Each entity can have observations (facts) and tags for filtering.
+
+Key capabilities:
+- Graph-native storage using ReDB (default) or SQLite
+- Five search modes: exact, fuzzy, full-text (Tantivy BM25), hybrid, and vector (cosine similarity)
+- Cross-project search without mixing namespaces
+- Graph traversal with BFS, Dijkstra shortest path, and filtered exploration
+- MCP server with 12 tools for AI assistant integration
+- CLI for manual knowledge management
+- JSON import/export for backup and migration
+
+Performance targets: <10ms cold start, <5ms search on 10k entities, <15MB binary, <20MB idle memory.
+
+## Documentation
+
+- [GitHub README](https://github.com/omar16100/parsnip#readme): Installation, configuration, and usage guide
+- [Issues](https://github.com/omar16100/parsnip/issues): Bug reports and feature requests
+
+## Installation
+
+Three installation methods:
+- Shell: `curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh`
+- Cargo: `cargo install parsnip-cli`
+- Homebrew: `brew install omar16100/tap/parsnip`
+
+## MCP Integration
+
+Parsnip provides a Model Context Protocol server for AI assistants like Claude Desktop. Configure in `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "parsnip": {
+      "command": "parsnip",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+Available MCP tools:
+- `search_knowledge` - Search entities with exact/fuzzy/fulltext modes
+- `create_entities` - Create entities with observations and tags
+- `add_observations` - Add facts to existing entities
+- `create_relations` - Create typed connections between entities
+- `delete_entities` - Remove entities and their relations
+- `delete_observations` - Remove specific facts from entities
+- `delete_relations` - Remove connections between entities
+- `read_graph` - Get complete project graph
+- `open_nodes` - Retrieve specific entities by name
+- `add_tags` - Add categorical tags for filtering
+- `remove_tags` - Remove tags from entities
+- `traverse_graph` - BFS/Dijkstra graph traversal with filters
+
+## CLI Commands
+
+Entity management:
+- `parsnip entity add NAME -t TYPE -o "observation" --tag TAG`
+- `parsnip entity list --type person --tag engineer`
+- `parsnip entity get NAME`
+- `parsnip entity delete NAME`
+- `parsnip entity observe NAME "new fact"`
+
+Relation management:
+- `parsnip relation add FROM TO -t RELATION_TYPE`
+- `parsnip relation list --from NAME --type works_at`
+- `parsnip relation delete FROM TO -t TYPE`
+- `parsnip relation traverse START -d DEPTH --direction outgoing`
+- `parsnip relation find-path START END --weighted`
+
+Search:
+- `parsnip search "query" --mode exact|fuzzy|fulltext|hybrid`
+- `parsnip search --tag TAG --type TYPE`
+- `parsnip search "query" --all-projects`
+
+Project management:
+- `parsnip project list`
+- `parsnip project create NAME -d "description"`
+- `parsnip project use NAME`
+- `parsnip project stats`
+
+Import/Export:
+- `parsnip export -o backup.json --all-projects`
+- `parsnip import data.json --merge --target-project NAME`
+
+Server:
+- `parsnip serve` - Start MCP server on stdio
+- `parsnip serve -t sse --port 3000` - Start HTTP/SSE server
+
+## Data Model
+
+Entities have: name (unique per project), type (person/technology/project/company/concept/event/preference), observations (array of facts), tags (array of labels), and project_id.
+
+Relations have: from_name, to_name, relation_type (e.g., works_at, manages, depends_on), and project_id.
+
+Projects are namespaces that isolate entities and relations. Cross-project search is supported without mixing data.
+
+## Storage
+
+Default storage: ReDB - embedded key-value store with ACID transactions at `~/.local/share/parsnip/parsnip.redb`
+
+Alternative: SQLite with `--features sqlite` flag at `~/.local/share/parsnip/parsnip.sqlite`
+
+Full-text search index stored at `~/.local/share/parsnip/index/`
+
+## Optional
+
+- [Website](https://omar16100.github.io/parsnip/): Landing page with interactive examples
+- [Releases](https://github.com/omar16100/parsnip/releases): Pre-built binaries for Linux/macOS/Windows
+- [crates.io](https://crates.io/crates/parsnip-cli): Rust package registry
