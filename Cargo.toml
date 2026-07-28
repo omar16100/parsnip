@@ -69,6 +69,13 @@ tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "limit"] }
 async-stream = "0.3"
 
+# HTTP client for remote storage mode.
+# No TLS features: the daemon is reached over Tailscale, which already encrypts and
+# authenticates at the transport layer, and hyper/http/tower are already in the graph via
+# axum, so this pulls in very little that is not already built. `remote-tls` opts into
+# rustls for anyone fronting the daemon with HTTPS.
+reqwest = { version = "0.12", default-features = false, features = ["json", "charset"] }
+
 # Testing
 tempfile = "3.13"
 assert_cmd = "2.0"

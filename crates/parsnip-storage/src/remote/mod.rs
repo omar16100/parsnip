@@ -15,5 +15,11 @@
 pub mod dispatch;
 pub mod protocol;
 
+#[cfg(feature = "remote")]
+pub mod client;
+
 pub use dispatch::StorageDispatcher;
 pub use protocol::{method, GraphPayload, WireError, STORAGE_ERROR_CODE};
+
+#[cfg(feature = "remote")]
+pub use client::{HttpTransport, RemoteStorage, RpcTransport};

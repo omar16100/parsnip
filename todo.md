@@ -42,7 +42,17 @@ P1 protocol + dispatch:
 - [x] Batch-size limits enforced server-side; content-shape limits deliberately not, so
       remote does not reject data local mode accepts
 
-Remaining: P2 client, P3 server wiring, P4 CLI wiring, P5 search+fulltext,
+P2 client:
+- [x] `reqwest` added to `[workspace.dependencies]` (no TLS features; Tailscale already encrypts)
+- [x] `remote` / `remote-tls` cargo features; protocol and dispatcher always compiled
+- [x] `RpcTransport` trait + `HttpTransport`, so the protocol is testable with no socket
+- [x] `RemoteStorage` implements all 22 methods, overriding the three provided defaults
+- [x] Batch chunking bounded by item count and serialized bytes
+- [x] Connect/request timeouts (there were none anywhere before), 401 and 413 mapped to clear messages
+- [x] `/health` capability check on connect, so version skew is one message not per-call failures
+- [x] Conformance suite: identical assertions against MemoryStorage and RemoteStorage
+
+Remaining: P3 server wiring, P4 CLI wiring, P5 search+fulltext,
 P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
 
 ## Pending

@@ -10,6 +10,10 @@ repository.workspace = true
 default = ["redb"]
 redb = ["dep:redb"]
 sqlite = ["dep:rusqlite"]
+# Client half of the storage RPC. The protocol and the server-side dispatcher are
+# always compiled; only the HTTP client is optional.
+remote = ["dep:reqwest"]
+remote-tls = ["remote", "reqwest/rustls-tls"]
 
 [dependencies]
 parsnip-core = { workspace = true }
@@ -21,6 +25,9 @@ serde_json = { workspace = true }
 # Storage backends
 redb = { workspace = true, optional = true }
 rusqlite = { workspace = true, optional = true }
+
+# HTTP client for remote mode (see the `remote` feature)
+reqwest = { workspace = true, optional = true }
 
 # Error Handling
 thiserror = { workspace = true }
