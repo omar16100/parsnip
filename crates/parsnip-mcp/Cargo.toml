@@ -40,3 +40,7 @@ async-stream = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# The contract test drives a real router over real HTTP with the real client, which is
+# what catches drift between the client's JSON-RPC envelope and this crate's.
+parsnip-storage = { workspace = true, features = ["remote"] }
+reqwest = { workspace = true }

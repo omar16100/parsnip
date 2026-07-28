@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[cfg(feature = "sse")]
 use axum::{
     body::Body,
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     http::{header, HeaderMap, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{
@@ -40,20 +40,24 @@ use crate::transport::JsonRpcRequest;
 #[cfg(feature = "sse")]
 use crate::McpServer;
 
-/// Maximum request body size (1MB)
+/// Maximum request body size.
+///
+/// Raised from 1MB for the storage RPC: `parsnip import` sends entity batches, and a
+/// batch of entities carrying large observations exceeds 1MB easily. Clients still chunk
+/// their batches, so this is a ceiling rather than the mechanism.
 #[cfg(feature = "sse")]
-const MAX_BODY_SIZE: usize = 1024 * 1024;
+const MAX_BODY_SIZE: usize = 32 * 1024 * 1024;
 
 /// SSE transport state
 #[cfg(feature = "sse")]
-pub struct SseState<S: StorageBackend> {
+pub struct SseState<S: StorageBackend + ?Sized> {
     server: Arc<McpServer<S>>,
     event_tx: broadcast::Sender<String>,
     auth_token: Option<String>,
 }
 
 #[cfg(feature = "sse")]
-impl<S: StorageBackend + Send + Sync + 'static> SseState<S> {
+impl<S: StorageBackend + ?Sized + Send + Sync + 'static> SseState<S> {
     pub fn new(server: Arc<McpServer<S>>, auth_token: Option<String>) -> Self {
         let (event_tx, _) = broadcast::channel(100);
         Self {
@@ -66,7 +70,7 @@ impl<S: StorageBackend + Send + Sync + 'static> SseState<S> {
 
 /// Auth middleware - validates Bearer token if configured
 #[cfg(feature = "sse")]
-async fn auth_middleware<S: StorageBackend + Send + Sync + 'static>(
+async fn auth_middleware<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     State(state): State<Arc<SseState<S>>>,
     headers: HeaderMap,
     request: Request<Body>,
@@ -106,7 +110,7 @@ async fn auth_middleware<S: StorageBackend + Send + Sync + 'static>(
 
 /// Create the SSE router
 #[cfg(feature = "sse")]
-pub fn create_sse_router<S: StorageBackend + Send + Sync + 'static>(
+pub fn create_sse_router<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     server: Arc<McpServer<S>>,
     auth_token: Option<String>,
 ) -> Router {
@@ -133,6 +137,9 @@ pub fn create_sse_router<S: StorageBackend + Send + Sync + 'static>(
         ))
         .with_state(state)
         .layer(cors)
+        // Two independent limits: axum's Json extractor enforces DefaultBodyLimit (2MB)
+        // regardless of the tower layer, so raising only one still rejects large bodies.
+        .layer(DefaultBodyLimit::max(MAX_BODY_SIZE))
         .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
 }
 
@@ -152,7 +159,7 @@ async fn health_handler() -> impl IntoResponse {
 
 /// SSE endpoint for server-to-client events
 #[cfg(feature = "sse")]
-async fn sse_handler<S: StorageBackend + Send + Sync + 'static>(
+async fn sse_handler<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     State(state): State<Arc<SseState<S>>>,
 ) -> Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>> {
     let mut rx = state.event_tx.subscribe();
@@ -195,7 +202,7 @@ async fn sse_handler<S: StorageBackend + Send + Sync + 'static>(
 
 /// Message endpoint for client requests
 #[cfg(feature = "sse")]
-async fn message_handler<S: StorageBackend + Send + Sync + 'static>(
+async fn message_handler<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     State(state): State<Arc<SseState<S>>>,
     Json(request): Json<JsonRpcRequest>,
 ) -> impl IntoResponse {
@@ -219,7 +226,7 @@ async fn message_handler<S: StorageBackend + Send + Sync + 'static>(
 
 /// Run the SSE server
 #[cfg(feature = "sse")]
-pub async fn run_sse_server<S: StorageBackend + Send + Sync + 'static>(
+pub async fn run_sse_server<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     server: Arc<McpServer<S>>,
     addr: &str,
     auth_token: Option<String>,

@@ -10,6 +10,7 @@ use parsnip_core::{
 #[cfg(feature = "fulltext")]
 use parsnip_search::FullTextSearchEngine;
 use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
+use parsnip_storage::remote::{StorageDispatcher, STORAGE_ERROR_CODE};
 use parsnip_storage::StorageBackend;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -22,13 +23,23 @@ const SERVER_NAME: &str = "parsnip";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// MCP Server for Parsnip
-pub struct McpServer<S: StorageBackend> {
+///
+/// `?Sized` so this can be built over `Arc<dyn StorageBackend>`, which is what lets the
+/// CLI choose between a local backend and a remote one at runtime. Concrete
+/// instantiations such as `McpServer<MemoryStorage>` keep working unchanged.
+pub struct McpServer<S: StorageBackend + ?Sized> {
     storage: Arc<S>,
+    /// Server side of the storage RPC used by remote CLI clients. Separate from the MCP
+    /// tool surface, which is for LLM clients.
+    dispatcher: StorageDispatcher<S>,
 }
 
-impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
+impl<S: StorageBackend + ?Sized + Send + Sync + 'static> McpServer<S> {
     pub fn new(storage: Arc<S>) -> Self {
-        Self { storage }
+        Self {
+            dispatcher: StorageDispatcher::new(storage.clone()),
+            storage,
+        }
     }
 
     /// Start the MCP server on stdio
@@ -67,6 +78,12 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
     }
 
     async fn handle_request(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+        // Storage RPC calls come from remote CLI clients, not from LLM clients, and are
+        // dispatched straight against the backend rather than through the tool surface.
+        if StorageDispatcher::<S>::handles(&request.method) {
+            return self.handle_storage_rpc(request).await;
+        }
+
         match request.method.as_str() {
             "initialize" => self.handle_initialize(request.id).await,
             "initialized" => JsonRpcResponse::success(request.id, serde_json::json!({})),
@@ -78,6 +95,28 @@ impl<S: StorageBackend + Send + Sync + 'static> McpServer<S> {
                 -32601,
                 format!("Method not found: {}", request.method),
             ),
+        }
+    }
+
+    async fn handle_storage_rpc(&self, request: JsonRpcRequest) -> JsonRpcResponse {
+        match self
+            .dispatcher
+            .dispatch(&request.method, request.params)
+            .await
+        {
+            Ok(result) => JsonRpcResponse::success(request.id, result),
+            Err(wire) => {
+                tracing::debug!(method = %request.method, kind = %wire.kind, "storage RPC failed");
+                // The structured payload is what lets the client rebuild a real
+                // StorageError variant instead of a flat string.
+                let data = serde_json::to_value(&wire).unwrap_or(serde_json::Value::Null);
+                JsonRpcResponse::error_with_data(
+                    request.id,
+                    STORAGE_ERROR_CODE,
+                    wire.detail.clone(),
+                    data,
+                )
+            }
         }
     }
 

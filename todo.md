@@ -52,7 +52,17 @@ P2 client:
 - [x] `/health` capability check on connect, so version skew is one message not per-call failures
 - [x] Conformance suite: identical assertions against MemoryStorage and RemoteStorage
 
-Remaining: P3 server wiring, P4 CLI wiring, P5 search+fulltext,
+P3 server wiring:
+- [x] `?Sized` on McpServer and the seven sse.rs generic sites, so the server can be built
+      over `Arc<dyn StorageBackend>`; compiled first try, no axum bound trouble
+- [x] `storage/*` arm in `handle_request`, dispatching to StorageDispatcher
+- [x] Errors returned with a structured `data` payload carrying the WireError kind
+- [x] Body limit raised to 32MB on both `RequestBodyLimitLayer` and axum's `DefaultBodyLimit`
+- [x] Contract tests: real router on an ephemeral port, real HTTP, real client, over
+      `Arc<dyn StorageBackend>`; covers auth, capabilities, 5MB batches, error kinds,
+      and that the MCP tool surface still works alongside the storage RPC
+
+Remaining: P4 CLI wiring, P5 search+fulltext,
 P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
 
 ## Pending
