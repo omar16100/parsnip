@@ -32,7 +32,17 @@ P0 preflight:
 - [x] `run_sse_server` logs the actually-bound address, making `--port 0` usable
 - [x] Delete the dead `ToolHandler` in `handlers.rs` (722 lines to 58)
 
-Remaining: P1 protocol+dispatch, P2 client, P3 server wiring, P4 CLI wiring, P5 search+fulltext,
+P1 protocol + dispatch:
+- [x] `remote/protocol.rs`: `storage/<trait_method>` names, param structs mirroring trait
+      parameter names, `WireError {kind, detail}` with `StorageError` mapping both ways
+- [x] `remote/dispatch.rs`: transport-agnostic `StorageDispatcher` covering all 22 storage methods
+- [x] `StorageError::Remote` for remote-reported and transport failures
+- [x] `storage/get_or_create_project` holds a lock across get-then-create, closing the race
+      that silently orphans entities under a losing ProjectId (entity keys embed the project UUID)
+- [x] Batch-size limits enforced server-side; content-shape limits deliberately not, so
+      remote does not reject data local mode accepts
+
+Remaining: P2 client, P3 server wiring, P4 CLI wiring, P5 search+fulltext,
 P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
 
 ## Pending
