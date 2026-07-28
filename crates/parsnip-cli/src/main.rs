@@ -50,6 +50,10 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub quiet: bool,
 
+    /// Bearer token: required by `serve` for non-localhost, sent by remote-mode clients
+    #[arg(long, env = "PARSNIP_AUTH_TOKEN", global = true)]
+    pub auth_token: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -105,10 +109,8 @@ pub struct ServeArgs {
     #[arg(long, default_value = "127.0.0.1")]
     pub host: String,
 
-    /// Auth token for SSE transport (required for non-localhost)
-    #[arg(long, env = "PARSNIP_AUTH_TOKEN")]
-    pub auth_token: Option<String>,
-
+    // NOTE: --auth-token lives on `Cli` as a global arg (shared with remote client mode).
+    // Declaring it here as well would duplicate the clap arg ID.
     /// Allow binding to non-localhost addresses (requires --auth-token)
     #[arg(long)]
     pub allow_remote: bool,
@@ -195,12 +197,23 @@ impl AppContext {
     }
 }
 
-// Use current_thread runtime for faster CLI cold start
-// Multi-threaded runtime is overkill for CLI operations
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> anyhow::Result<()> {
+// CLI commands use a current_thread runtime for faster cold start; `serve` needs a
+// multi-threaded one because it is a daemon handling concurrent clients whose storage
+// calls block on redb I/O.
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    let runtime = match &cli.command {
+        Commands::Serve(_) => tokio::runtime::Runtime::new()?,
+        _ => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?,
+    };
+
+    runtime.block_on(run(cli))
+}
+
+async fn run(cli: Cli) -> anyhow::Result<()> {
     // Set up logging based on verbosity
     let filter = match cli.verbose {
         0 if cli.quiet => "error",
@@ -216,6 +229,14 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::debug!("Starting parsnip CLI");
+
+    // These commands never touch storage. Handle them before opening the database so they
+    // keep working when another process holds the lock.
+    match &cli.command {
+        Commands::Config(args) => return config_cmd::run(args).await,
+        Commands::Completions(args) => return completions::run(args),
+        _ => {}
+    }
 
     // Initialize storage
     let ctx = AppContext::new(&cli).await?;
@@ -245,7 +266,7 @@ async fn main() -> anyhow::Result<()> {
                     }
 
                     // Security: require auth token for non-localhost or if specified
-                    if !is_localhost && args.auth_token.is_none() {
+                    if !is_localhost && cli.auth_token.is_none() {
                         anyhow::bail!(
                             "Non-localhost binding requires --auth-token or PARSNIP_AUTH_TOKEN env var"
                         );
@@ -253,7 +274,7 @@ async fn main() -> anyhow::Result<()> {
 
                     let addr = format!("{}:{}", args.host, args.port);
                     tracing::info!("Starting MCP server with SSE transport on {}", addr);
-                    parsnip_mcp::run_sse_server(server, &addr, args.auth_token.clone()).await?;
+                    parsnip_mcp::run_sse_server(server, &addr, cli.auth_token.clone()).await?;
                 }
                 #[cfg(not(feature = "sse"))]
                 "sse" | "http" => {
@@ -265,8 +286,8 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Commands::Config(args) => config_cmd::run(args).await?,
-        Commands::Completions(args) => completions::run(args)?,
+        // Handled above, before storage was opened.
+        Commands::Config(_) | Commands::Completions(_) => unreachable!(),
     }
 
     Ok(())

@@ -56,7 +56,8 @@ pub enum RelationCommands {
         /// Starting entity
         start: String,
         /// Traversal depth
-        #[arg(short, long, default_value = "2")]
+        // No short form: -d is taken by the global --data-dir.
+        #[arg(long, default_value = "2")]
         depth: u32,
         /// Direction: outgoing, incoming, both
         #[arg(long, default_value = "both")]

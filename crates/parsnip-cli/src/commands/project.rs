@@ -21,7 +21,8 @@ pub enum ProjectCommands {
         /// Project name
         name: String,
         /// Project description
-        #[arg(short, long)]
+        // No short form: -d is taken by the global --data-dir.
+        #[arg(long)]
         description: Option<String>,
     },
     /// Set default project
@@ -34,7 +35,8 @@ pub enum ProjectCommands {
         /// Project name
         name: String,
         /// Force deletion without confirmation
-        #[arg(short, long)]
+        // No short form: -f is taken by the global --format.
+        #[arg(long)]
         force: bool,
     },
     /// Show project statistics

@@ -142,7 +142,11 @@ async fn health_handler() -> impl IntoResponse {
     Json(serde_json::json!({
         "status": "ok",
         "server": "parsnip-mcp",
-        "version": env!("CARGO_PKG_VERSION")
+        "version": env!("CARGO_PKG_VERSION"),
+        // Advertised so remote clients can detect version skew up front and report it
+        // clearly, instead of hitting "method not found" per call.
+        "capabilities": crate::CAPABILITIES,
+        "maxBodySize": MAX_BODY_SIZE
     }))
 }
 
@@ -197,11 +201,17 @@ async fn message_handler<S: StorageBackend + Send + Sync + 'static>(
 ) -> impl IntoResponse {
     tracing::debug!("Received SSE request: {:?}", request.method);
 
+    // Storage RPCs are point-to-point CLI traffic. Broadcasting their responses would push
+    // whole-graph payloads at every SSE subscriber, so only MCP responses go on the stream.
+    // The broadcast is the sole delivery path to /sse subscribers, so it must stay for MCP.
+    let broadcastable = !request.method.starts_with(crate::STORAGE_METHOD_PREFIX);
+
     let response = state.server.handle_request_public(request).await;
 
-    // Also broadcast to SSE clients if they want to see responses
-    if let Ok(json) = serde_json::to_string(&response) {
-        let _ = state.event_tx.send(json);
+    if broadcastable {
+        if let Ok(json) = serde_json::to_string(&response) {
+            let _ = state.event_tx.send(json);
+        }
     }
 
     Json(response)
@@ -217,10 +227,14 @@ pub async fn run_sse_server<S: StorageBackend + Send + Sync + 'static>(
     let router = create_sse_router(server, auth_token);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    tracing::info!("MCP SSE server listening on {}", addr);
-    tracing::info!("  SSE endpoint: http://{}/sse", addr);
-    tracing::info!("  Message endpoint: http://{}/message", addr);
-    tracing::info!("  Health check: http://{}/health", addr);
+
+    // Log the address actually bound, not the one requested, so `--port 0` is usable and
+    // the log is truthful when the two differ.
+    let bound = listener.local_addr()?;
+    tracing::info!("MCP SSE server listening on {}", bound);
+    tracing::info!("  SSE endpoint: http://{}/sse", bound);
+    tracing::info!("  Message endpoint: http://{}/message", bound);
+    tracing::info!("  Health check: http://{}/health", bound);
 
     axum::serve(listener, router).await?;
 

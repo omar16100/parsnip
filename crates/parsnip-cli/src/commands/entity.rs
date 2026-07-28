@@ -50,7 +50,8 @@ pub enum EntityCommands {
         /// Entity name
         name: String,
         /// Force deletion without confirmation
-        #[arg(short, long)]
+        // No short form: -f is taken by the global --format.
+        #[arg(long)]
         force: bool,
     },
     /// Add observation to entity

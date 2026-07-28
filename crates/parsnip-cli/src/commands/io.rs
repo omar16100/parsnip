@@ -29,7 +29,8 @@ pub struct ImportArgs {
     pub file: PathBuf,
 
     /// Target project (default: use project from file or 'default')
-    #[arg(short = 'p', long)]
+    // No short form: -p is taken by the global --project.
+    #[arg(long)]
     pub target_project: Option<String>,
 
     /// Merge with existing data (default: error if exists)
