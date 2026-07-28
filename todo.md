@@ -86,7 +86,20 @@ lock are no longer created by every invocation (0.1.0 creates the index dir even
 `entity add`), and that remote mode must not open a local index at all. No user-visible
 search behaviour change.
 
-Remaining: P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
+P9 end-to-end tests:
+- [x] `crates/parsnip-cli/tests/remote_mode.rs`: real daemon process, real CLI binary, real HTTP
+- [x] Acceptance criterion encoded: local fails with a lock error naming --server, remote succeeds
+- [x] Full command surface, export/import round trip, auth, unreachable daemon, concurrency
+- [x] Parity: local and remote stdout byte-identical across exact/fuzzy/fulltext/hybrid
+- [x] `concurrent_clients_agree_on_one_project` caught that the atomic RPC was never wired
+      into the CLI; three of four entities were being orphaned. Now fixed and asserted.
+
+Pre-existing release bugs found and fixed along the way (both affect shipped 0.1.0):
+- [x] `parsnip completions <shell>` panicked for every shell (short-option collisions)
+- [x] `parsnip export` panicked at parse time: the global `--format` (String) and export's
+      own `--format` (enum) shared a clap arg id
+
+Remaining: P6 render layer, P7 features/dist, P8 daemon deploy, P10 docs.
 
 ## Pending
 

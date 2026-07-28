@@ -40,7 +40,13 @@ pub struct Cli {
     pub data_dir: Option<String>,
 
     /// Output format: table, json, csv
-    #[arg(short, long, default_value = "table", global = true)]
+    ///
+    /// Not `global = true`: `export` defines its own `--format` (json/csv/graphml), and
+    /// two args sharing the clap id `format` with different types made `parsnip export`
+    /// panic at parse time with "Mismatch between definition and access of `format`".
+    /// That affected the released 0.1.0 as well. Accepted before the subcommand, as in
+    /// `parsnip --format json entity list`.
+    #[arg(short, long, default_value = "table")]
     pub format: String,
 
     /// Verbosity level (-v, -vv, -vvv)
@@ -213,6 +219,30 @@ impl AppContext {
             #[cfg(feature = "remote")]
             remote: None,
         })
+    }
+
+    /// Resolve a project name to its id, creating the project if it does not exist.
+    ///
+    /// Remote mode resolves this in one atomic server-side call. Doing it as a local
+    /// get-then-create loses data: two clients both see no project, both mint a different
+    /// `ProjectId`, and both save. The last write wins the name while the loser's entities
+    /// stay keyed under an id no name resolves to, so they vanish. That is not theoretical,
+    /// it is what `concurrent_clients_agree_on_one_project` reproduces.
+    ///
+    /// The local path keeps the original behaviour: one process, so nothing to race with.
+    pub async fn project_id(&self, name: &str) -> anyhow::Result<parsnip_core::ProjectId> {
+        #[cfg(feature = "remote")]
+        if let Some(remote) = &self.remote {
+            return Ok(remote.get_or_create_project(name).await?.id);
+        }
+
+        if let Some(project) = self.storage.get_project(name).await? {
+            return Ok(project.id);
+        }
+        let project = parsnip_core::Project::new(name);
+        self.storage.save_project(&project).await?;
+        tracing::info!("Created new project: {}", name);
+        Ok(project.id)
     }
 }
 

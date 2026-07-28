@@ -46,13 +46,9 @@ pub struct SearchArgs {
     pub include_relations: bool,
 }
 
+/// Delegates to [`AppContext::project_id`], which is atomic in remote mode.
 async fn get_project_id(project_name: &str, ctx: &AppContext) -> anyhow::Result<ProjectId> {
-    if let Some(project) = ctx.storage.get_project(project_name).await? {
-        return Ok(project.id);
-    }
-    let project = parsnip_core::Project::new(project_name);
-    ctx.storage.save_project(&project).await?;
-    Ok(project.id)
+    ctx.project_id(project_name).await
 }
 
 pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Result<()> {

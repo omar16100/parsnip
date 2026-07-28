@@ -79,17 +79,9 @@ pub enum EntityCommands {
     },
 }
 
+/// Delegates to [`AppContext::project_id`], which is atomic in remote mode.
 async fn get_project_id(project_name: &str, ctx: &AppContext) -> anyhow::Result<ProjectId> {
-    // Try to find existing project
-    if let Some(project) = ctx.storage.get_project(project_name).await? {
-        return Ok(project.id);
-    }
-
-    // Create new project if it doesn't exist
-    let project = parsnip_core::Project::new(project_name);
-    ctx.storage.save_project(&project).await?;
-    tracing::info!("Created new project: {}", project_name);
-    Ok(project.id)
+    ctx.project_id(project_name).await
 }
 
 pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Result<()> {
