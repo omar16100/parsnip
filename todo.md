@@ -30,7 +30,7 @@ P0 preflight:
 - [x] `/health` advertises `capabilities` and `maxBodySize` for version-skew detection
 - [x] SSE broadcast filtered to MCP methods only (`storage/*` responses stay point-to-point)
 - [x] `run_sse_server` logs the actually-bound address, making `--port 0` usable
-- [ ] Delete the dead `ToolHandler` in `handlers.rs`
+- [x] Delete the dead `ToolHandler` in `handlers.rs` (722 lines to 58)
 
 Remaining: P1 protocol+dispatch, P2 client, P3 server wiring, P4 CLI wiring, P5 search+fulltext,
 P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
