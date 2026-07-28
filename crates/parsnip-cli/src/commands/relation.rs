@@ -4,6 +4,9 @@ use std::collections::HashMap;
 
 use clap::{Args, Subcommand};
 
+use crate::view::{
+    emit, FindPathView, MutationView, PathView, RelationListView, RelationRow, TraversalView,
+};
 use crate::{AppContext, Cli};
 use parsnip_core::{Direction, ProjectId, Relation, TraversalEngine, TraversalQuery};
 
@@ -130,10 +133,16 @@ pub async fn run(args: &RelationArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Re
             ctx.storage.save_relation(&relation).await?;
             tracing::info!("Created relation: {} -[{}]-> {}", from, r#type, to);
 
-            println!("Created relation: {} -[{}]-> {}", from, r#type, to);
-            if let Some(w) = weight {
-                println!("  weight: {}", w);
-            }
+            let details = weight
+                .map(|w| vec![format!("  weight: {}", w)])
+                .unwrap_or_default();
+            emit(
+                &MutationView::with_details(
+                    format!("Created relation: {} -[{}]-> {}", from, r#type, to),
+                    details,
+                ),
+                cli.format,
+            )?;
         }
         RelationCommands::List { from, to, r#type } => {
             let project_id = get_project_id(&cli.project, ctx).await?;
@@ -163,25 +172,19 @@ pub async fn run(args: &RelationArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Re
 
             tracing::info!("Found {} relations", filtered.len());
 
-            if filtered.is_empty() {
-                println!("No relations found in project '{}'", cli.project);
-            } else {
-                println!(
-                    "Relations in project '{}' ({} found):",
-                    cli.project,
-                    filtered.len()
-                );
-                for relation in &filtered {
-                    let weight_str = relation
-                        .weight
-                        .map(|w| format!(" (weight: {:.2})", w))
-                        .unwrap_or_default();
-                    println!(
-                        "  {} -[{}]-> {}{}",
-                        relation.from_name, relation.relation_type, relation.to_name, weight_str
-                    );
-                }
-            }
+            let view = RelationListView {
+                project: cli.project.clone(),
+                relations: filtered
+                    .iter()
+                    .map(|r| RelationRow {
+                        from: r.from_name.clone(),
+                        to: r.to_name.clone(),
+                        relation_type: r.relation_type.clone(),
+                        weight: r.weight,
+                    })
+                    .collect(),
+            };
+            emit(&view, cli.format)?;
         }
         RelationCommands::Delete { from, to, r#type } => {
             let project_id = get_project_id(&cli.project, ctx).await?;
@@ -190,7 +193,10 @@ pub async fn run(args: &RelationArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Re
                 .delete_relation(from, to, r#type, &project_id)
                 .await?;
             tracing::info!("Deleted relation: {} -[{}]-> {}", from, r#type, to);
-            println!("Deleted relation: {} -[{}]-> {}", from, r#type, to);
+            emit(
+                &MutationView::new(format!("Deleted relation: {} -[{}]-> {}", from, r#type, to)),
+                cli.format,
+            )?;
         }
         RelationCommands::Traverse {
             start,
@@ -249,34 +255,30 @@ pub async fn run(args: &RelationArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Re
             // Execute traversal
             let result = TraversalEngine::execute(&query, &entities, &relations);
 
-            println!(
-                "Traversal from '{}' (depth: {}, direction: {}):",
-                start, depth, direction
-            );
-            println!(
-                "  Visited {} entities, traversed {} edges",
-                result.stats.nodes_visited, result.stats.edges_traversed
-            );
+            // Sorted: the traversal returns visited entities in hash order, so two runs
+            // over identical data printed different orderings.
+            let mut visited = result.visited_entities.clone();
+            visited.sort();
 
-            if result.visited_entities.len() <= 1 {
-                println!("  (no connected entities found)");
-            } else {
-                println!("  Entities: {}", result.visited_entities.join(", "));
-
-                if !result.relations.is_empty() {
-                    println!("  Relations:");
-                    for rel in &result.relations {
-                        let weight_str = rel
-                            .weight
-                            .map(|w| format!(" (weight: {:.2})", w))
-                            .unwrap_or_default();
-                        println!(
-                            "    {} -[{}]-> {}{}",
-                            rel.from_name, rel.relation_type, rel.to_name, weight_str
-                        );
-                    }
-                }
-            }
+            let view = TraversalView {
+                start: start.clone(),
+                depth: *depth,
+                direction: direction.clone(),
+                nodes_visited: result.stats.nodes_visited,
+                edges_traversed: result.stats.edges_traversed,
+                entities: visited,
+                relations: result
+                    .relations
+                    .iter()
+                    .map(|r| RelationRow {
+                        from: r.from_name.clone(),
+                        to: r.to_name.clone(),
+                        relation_type: r.relation_type.clone(),
+                        weight: r.weight,
+                    })
+                    .collect(),
+            };
+            emit(&view, cli.format)?;
         }
         RelationCommands::FindPath {
             from,
@@ -338,42 +340,33 @@ pub async fn run(args: &RelationArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Re
             // Execute path finding
             let result = TraversalEngine::execute(&query, &entities, &relations);
 
-            if result.paths.is_empty() {
-                println!("No path found from '{}' to '{}'", from, to);
-                println!(
-                    "  (searched {} nodes, {} edges)",
-                    result.stats.nodes_visited, result.stats.edges_traversed
-                );
-            } else {
-                let algo = if *weighted { "Dijkstra" } else { "BFS" };
-                println!("Path found from '{}' to '{}' using {}:", from, to, algo);
-
-                for (i, path) in result.paths.iter().enumerate() {
-                    println!(
-                        "\n  Path {}: {} hops, total weight: {:.2}",
-                        i + 1,
-                        path.length,
-                        path.total_weight
-                    );
-                    println!("  Route: {}", path.nodes.join(" -> "));
-
-                    for edge in &path.edges {
-                        let weight_str = edge
-                            .weight
-                            .map(|w| format!(" (weight: {:.2})", w))
-                            .unwrap_or_default();
-                        println!(
-                            "    {} -[{}]-> {}{}",
-                            edge.from, edge.relation_type, edge.to, weight_str
-                        );
-                    }
-                }
-
-                println!(
-                    "\n  Stats: visited {} nodes, traversed {} edges",
-                    result.stats.nodes_visited, result.stats.edges_traversed
-                );
-            }
+            let view = FindPathView {
+                from: from.clone(),
+                to: to.clone(),
+                algorithm: if *weighted { "Dijkstra" } else { "BFS" },
+                nodes_visited: result.stats.nodes_visited,
+                edges_traversed: result.stats.edges_traversed,
+                paths: result
+                    .paths
+                    .iter()
+                    .map(|p| PathView {
+                        nodes: p.nodes.clone(),
+                        edges: p
+                            .edges
+                            .iter()
+                            .map(|e| RelationRow {
+                                from: e.from.clone(),
+                                to: e.to.clone(),
+                                relation_type: e.relation_type.clone(),
+                                weight: e.weight,
+                            })
+                            .collect(),
+                        total_weight: p.total_weight,
+                        length: p.length,
+                    })
+                    .collect(),
+            };
+            emit(&view, cli.format)?;
         }
     }
 

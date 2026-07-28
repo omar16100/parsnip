@@ -115,7 +115,21 @@ other Mac, while 127.0.0.1 answers instantly. Daemon binds localhost; cross-mach
 keeps using the existing SSH arrangement. `tailscale serve` would be the way to expose it
 directly.
 
-Remaining: P6 render layer (`-f json`/`-f csv` still do nothing; output.rs is still dead code).
+P6 render layer:
+- [x] `view/` module: view structs per command output + `Render` trait + `emit()`
+- [x] `output.rs` deleted (it was dead code with "not yet implemented" stubs)
+- [x] `-f json` works on every command; `-f csv` on row-shaped ones; detail/mutation shapes
+      exit 2 with a message rather than faking a CSV
+- [x] `--format` unified into one global enum, so `export` no longer needs its own
+- [x] Sorted `project stats` breakdowns and `relation traverse` entity lists, which came
+      out of HashMaps and printed in a different order on every run
+- [x] Golden tests pin table output; 13 tests covering table, json and csv
+- [x] Rebuilt, reinstalled, daemon restarted on the new binary
+
+Also hardened the daemon: the plist now clears PARSNIP_SERVER and passes --local, because
+launchctl carried the caller's environment in and the daemon tried to proxy to itself.
+
+All phases complete. Not done: publishing (no tag, no crates.io, no tap update).
 
 ## Pending
 

@@ -2,6 +2,9 @@
 
 use clap::{Args, Subcommand};
 
+use crate::view::{
+    emit, EntityDetailView, EntityListView, EntityRow, MutationView, ObservationRow,
+};
 use crate::{AppContext, Cli};
 use parsnip_core::{Entity, ProjectId};
 
@@ -107,13 +110,15 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
             ctx.storage.save_entity(&entity).await?;
             tracing::info!("Created entity: {} (type: {})", name, r#type);
 
-            println!("Created entity: {} (type: {})", name, r#type);
-            for o in obs {
-                println!("  - {}", o);
-            }
-            for t in tag {
-                println!("  tag: {}", t);
-            }
+            let mut details: Vec<String> = obs.iter().map(|o| format!("  - {}", o)).collect();
+            details.extend(tag.iter().map(|t| format!("  tag: {}", t)));
+            emit(
+                &MutationView::with_details(
+                    format!("Created entity: {} (type: {})", name, r#type),
+                    details,
+                ),
+                cli.format,
+            )?;
         }
         EntityCommands::List { r#type, tag, limit } => {
             let project_id = get_project_id(&cli.project, ctx).await?;
@@ -143,23 +148,18 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
 
             tracing::info!("Found {} entities", filtered.len());
 
-            if filtered.is_empty() {
-                println!("No entities found in project '{}'", cli.project);
-            } else {
-                println!(
-                    "Entities in project '{}' ({} found):",
-                    cli.project,
-                    filtered.len()
-                );
-                for entity in &filtered {
-                    let tags = if entity.tags.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" [{}]", entity.tags.join(", "))
-                    };
-                    println!("  {} ({}){}", entity.name, entity.entity_type.0, tags);
-                }
-            }
+            let view = EntityListView {
+                project: cli.project.clone(),
+                entities: filtered
+                    .iter()
+                    .map(|e| EntityRow {
+                        name: e.name.clone(),
+                        entity_type: e.entity_type.0.clone(),
+                        tags: e.tags.clone(),
+                    })
+                    .collect(),
+            };
+            emit(&view, cli.format)?;
         }
         EntityCommands::Get { name } => {
             let project_id = get_project_id(&cli.project, ctx).await?;
@@ -167,22 +167,23 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
             match ctx.storage.get_entity(name, &project_id).await? {
                 Some(entity) => {
                     tracing::info!("Found entity: {}", name);
-                    println!("Entity: {}", entity.name);
-                    println!("  Type: {}", entity.entity_type.0);
-                    println!("  Project: {}", cli.project);
-                    println!("  Created: {}", entity.created_at);
-                    println!("  Updated: {}", entity.updated_at);
-
-                    if !entity.tags.is_empty() {
-                        println!("  Tags: {}", entity.tags.join(", "));
-                    }
-
-                    if !entity.observations.is_empty() {
-                        println!("  Observations:");
-                        for obs in &entity.observations {
-                            println!("    - {} ({})", obs.content, obs.created_at);
-                        }
-                    }
+                    let view = EntityDetailView {
+                        name: entity.name.clone(),
+                        entity_type: entity.entity_type.0.clone(),
+                        project: cli.project.clone(),
+                        created_at: entity.created_at.to_string(),
+                        updated_at: entity.updated_at.to_string(),
+                        tags: entity.tags.clone(),
+                        observations: entity
+                            .observations
+                            .iter()
+                            .map(|o| ObservationRow {
+                                content: o.content.clone(),
+                                created_at: o.created_at.to_string(),
+                            })
+                            .collect(),
+                    };
+                    emit(&view, cli.format)?;
                 }
                 None => {
                     println!("Entity '{}' not found in project '{}'", name, cli.project);
@@ -205,7 +206,10 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
 
             ctx.storage.delete_entity(name, &project_id).await?;
             tracing::info!("Deleted entity: {}", name);
-            println!("Deleted entity: {}", name);
+            emit(
+                &MutationView::new(format!("Deleted entity: {}", name)),
+                cli.format,
+            )?;
         }
         EntityCommands::Observe { name, content } => {
             let project_id = get_project_id(&cli.project, ctx).await?;
@@ -215,7 +219,10 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
                     entity.add_observation(content);
                     ctx.storage.save_entity(&entity).await?;
                     tracing::info!("Added observation to entity: {}", name);
-                    println!("Added observation to {}: {}", name, content);
+                    emit(
+                        &MutationView::new(format!("Added observation to {}: {}", name, content)),
+                        cli.format,
+                    )?;
                 }
                 None => {
                     println!("Entity '{}' not found in project '{}'", name, cli.project);
@@ -270,10 +277,13 @@ pub async fn run(args: &EntityArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
                     ctx.storage.save_entity(&entity).await?;
                     tracing::info!("Updated entity '{}': {:?}", name, changes);
 
-                    println!("Updated entity '{}':", name);
-                    for change in &changes {
-                        println!("  - {}", change);
-                    }
+                    emit(
+                        &MutationView::with_details(
+                            format!("Updated entity '{}':", name),
+                            changes.iter().map(|c| format!("  - {}", c)).collect(),
+                        ),
+                        cli.format,
+                    )?;
                 }
                 None => {
                     println!("Entity '{}' not found in project '{}'", name, cli.project);

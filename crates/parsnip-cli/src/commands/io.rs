@@ -6,21 +6,12 @@ use std::path::PathBuf;
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
-use clap::{Args, ValueEnum};
+use clap::Args;
 use serde::{Deserialize, Serialize};
 
+use crate::view::OutputFormat;
 use crate::{AppContext, Cli};
 use parsnip_core::{Entity, Project, Relation};
-
-/// Export format
-#[derive(Clone, Copy, Default, ValueEnum)]
-pub enum ExportFormat {
-    #[default]
-    Json,
-    Csv,
-    #[value(name = "graphml")]
-    GraphML,
-}
 
 #[derive(Args)]
 pub struct ImportArgs {
@@ -50,10 +41,6 @@ pub struct ExportArgs {
     /// Export all projects
     #[arg(long)]
     pub all_projects: bool,
-
-    /// Export format
-    #[arg(short, long, default_value = "json")]
-    pub format: ExportFormat,
 }
 
 /// Export format matching the knowledge graph structure
@@ -254,10 +241,13 @@ pub async fn run_export(args: &ExportArgs, cli: &Cli, ctx: &AppContext) -> anyho
         projects: project_exports,
     };
 
-    let content = match args.format {
-        ExportFormat::Json => serde_json::to_string_pretty(&export_data)?,
-        ExportFormat::Csv => export_to_csv(&export_data),
-        ExportFormat::GraphML => export_to_graphml(&export_data),
+    // `export` uses the same global --format as everything else. Table is not a
+    // serialization format, so the default falls through to JSON, which is what
+    // `parsnip export` with no flag has always produced.
+    let content = match cli.format {
+        OutputFormat::Json | OutputFormat::Table => serde_json::to_string_pretty(&export_data)?,
+        OutputFormat::Csv => export_to_csv(&export_data),
+        OutputFormat::Graphml => export_to_graphml(&export_data),
     };
 
     if let Some(ref path) = args.output {

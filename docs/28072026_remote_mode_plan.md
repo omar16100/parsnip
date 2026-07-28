@@ -1,6 +1,6 @@
 # Remote client mode
 
-Status: **deployed** (P0-P5, P7 local install, P8, P9, P10 complete; P6 outstanding).
+Status: **deployed**, all phases complete. Nothing published.
 Branch: `feat/remote-client-mode`.
 
 ## Context
@@ -40,9 +40,15 @@ against the alternative.
 | P8 | launchd daemon `com.omar.parsnip`; both Macs' access routed through it |
 | P9 | End-to-end tests including the acceptance criterion and the concurrency proof |
 | P10 | This document, `index.md`, `c4model.md`, AGENTS.md structure section |
+| P6 | `view/` module and a shared render path, so `--format json` and `--format csv` finally do something |
 
-P6 (a shared render layer so `-f json` and `-f csv` work) is **not** done. `output.rs`
-remains dead code and the global `--format` is still ignored by the commands.
+P6 notes: `output.rs` is gone; it was dead code whose table and csv arms returned "not yet
+implemented", which is why the flag never worked. `--format` is now one global enum, so
+`export` no longer declares a second flag under the same id. JSON is available on every
+command; CSV on the row-shaped ones, with the rest exiting 2 rather than emitting something
+that looks like data. `project stats` breakdowns and `relation traverse` entity lists are
+sorted: they came out of HashMaps and printed in a different order on every run, so they
+could not be diffed or pinned.
 
 ## Bugs found along the way
 

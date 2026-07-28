@@ -28,7 +28,12 @@
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>exec env PARSNIP_AUTH_TOKEN="$(cat $HOME/.parsnip/daemon-token)" $HOME/.local/bin/parsnip serve --transport sse --host 127.0.0.1 --port 8787</string>
+        <!--
+          `-u PARSNIP_SERVER` and `--local` both matter: if that variable reaches the
+          daemon it becomes a proxy pointing at itself and dies on startup, which is
+          exactly what happened when launchctl carried the caller's environment in.
+        -->
+        <string>exec env -u PARSNIP_SERVER PARSNIP_AUTH_TOKEN="$(cat $HOME/.parsnip/daemon-token)" $HOME/.local/bin/parsnip --local serve --transport sse --host 127.0.0.1 --port 8787</string>
     </array>
 
     <key>RunAtLoad</key>

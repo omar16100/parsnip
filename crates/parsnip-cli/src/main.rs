@@ -8,7 +8,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 mod commands;
 mod config;
-mod output;
+mod view;
 
 use commands::{completions, config as config_cmd, entity, io, project, relation, search};
 use parsnip_mcp::McpServer;
@@ -39,15 +39,13 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub data_dir: Option<String>,
 
-    /// Output format: table, json, csv
+    /// Output format: table, json, csv (graphml is export only)
     ///
-    /// Not `global = true`: `export` defines its own `--format` (json/csv/graphml), and
-    /// two args sharing the clap id `format` with different types made `parsnip export`
-    /// panic at parse time with "Mismatch between definition and access of `format`".
-    /// That affected the released 0.1.0 as well. Accepted before the subcommand, as in
-    /// `parsnip --format json entity list`.
-    #[arg(short, long, default_value = "table")]
-    pub format: String,
+    /// One global flag rather than one per command. `export` used to declare its own
+    /// `--format` of a different type under the same clap id, which made `parsnip export`
+    /// panic at parse time in the released 0.1.0.
+    #[arg(short, long, value_enum, default_value_t = view::OutputFormat::Table, global = true)]
+    pub format: view::OutputFormat,
 
     /// Verbosity level (-v, -vv, -vvv)
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
