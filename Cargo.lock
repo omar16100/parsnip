@@ -1376,7 +1376,7 @@ dependencies = [
 
 [[package]]
 name = "parsnip-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1400,7 +1400,7 @@ dependencies = [
 
 [[package]]
 name = "parsnip-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1415,7 +1415,7 @@ dependencies = [
 
 [[package]]
 name = "parsnip-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -1438,7 +1438,7 @@ dependencies = [
 
 [[package]]
 name = "parsnip-search"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "nucleo",
@@ -1455,7 +1455,7 @@ dependencies = [
 
 [[package]]
 name = "parsnip-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",

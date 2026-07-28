@@ -99,7 +99,23 @@ Pre-existing release bugs found and fixed along the way (both affect shipped 0.1
 - [x] `parsnip export` panicked at parse time: the global `--format` (String) and export's
       own `--format` (enum) shared a clap arg id
 
-Remaining: P6 render layer, P7 features/dist, P8 daemon deploy, P10 docs.
+P7 (local install), P8 (daemon), P10 (docs):
+- [x] Bumped to 0.2.0, release build, installed to `~/.local/bin/parsnip`
+      (previous 0.1.0 binary kept aside, not used to serve)
+- [x] launchd `com.omar.parsnip` on 127.0.0.1:8787, KeepAlive, token at `~/.parsnip/daemon-token`
+- [x] Shell profile exports PARSNIP_SERVER/PARSNIP_AUTH_TOKEN; `server_url` also in config
+- [x] Other Mac's MCP registration now proxies via PARSNIP_SERVER instead of opening the DB
+- [x] docs/index.md, docs/c4model.md, docs/28072026_remote_mode_plan.md, AGENTS.md structure
+- [x] Verified live: a real database, hybrid search ~70ms, writes work,
+      exactly one process holds parsnip.redb
+
+Correction: binding the daemon to the Tailscale address does not work on macOS. The TCP
+connection is accepted and no response ever arrives, confirmed from both this host and the
+other Mac, while 127.0.0.1 answers instantly. Daemon binds localhost; cross-machine access
+keeps using the existing SSH arrangement. `tailscale serve` would be the way to expose it
+directly.
+
+Remaining: P6 render layer (`-f json`/`-f csv` still do nothing; output.rs is still dead code).
 
 ## Pending
 
