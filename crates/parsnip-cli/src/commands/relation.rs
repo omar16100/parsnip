@@ -6,7 +6,6 @@ use clap::{Args, Subcommand};
 
 use crate::{AppContext, Cli};
 use parsnip_core::{Direction, ProjectId, Relation, TraversalEngine, TraversalQuery};
-use parsnip_storage::StorageBackend;
 
 #[derive(Args)]
 pub struct RelationArgs {

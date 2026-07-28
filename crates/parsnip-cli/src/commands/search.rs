@@ -7,7 +7,6 @@ use clap::Args;
 use crate::{AppContext, Cli};
 use parsnip_core::{ProjectId, Relation, SearchMode, SearchQuery};
 use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
-use parsnip_storage::StorageBackend;
 
 #[derive(Args)]
 pub struct SearchArgs {

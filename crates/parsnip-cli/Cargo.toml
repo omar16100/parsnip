@@ -11,9 +11,11 @@ name = "parsnip"
 path = "src/main.rs"
 
 [features]
-default = ["redb", "fulltext"]
+default = ["redb", "fulltext", "sse", "remote"]
 redb = ["parsnip-storage/redb"]
 sqlite = ["parsnip-storage/sqlite"]
+remote = ["parsnip-storage/remote"]
+remote-tls = ["parsnip-storage/remote-tls"]
 fulltext = ["parsnip-search/fulltext"]
 sse = ["parsnip-mcp/sse"]
 migrate = ["rusqlite"]

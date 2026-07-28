@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["fulltext"]
+default = ["fulltext", "sse"]
 fulltext = ["parsnip-search/fulltext"]
 sse = ["axum", "tower", "tower-http", "async-stream"]
 

@@ -12,12 +12,16 @@ mod output;
 
 use commands::{completions, config as config_cmd, entity, io, project, relation, search};
 use parsnip_mcp::McpServer;
+use parsnip_storage::StorageBackend;
 
 #[cfg(feature = "redb")]
 use parsnip_storage::RedbStorage;
 
 #[cfg(all(feature = "sqlite", not(feature = "redb")))]
 use parsnip_storage::SqliteStorage;
+
+#[cfg(feature = "remote")]
+use parsnip_storage::remote::client::RemoteStorage;
 
 #[cfg(feature = "fulltext")]
 use parsnip_search::FullTextSearchEngine;
@@ -49,6 +53,15 @@ pub struct Cli {
     /// Suppress output except errors
     #[arg(short, long, global = true)]
     pub quiet: bool,
+
+    /// Talk to a parsnip daemon over HTTP instead of opening the local database,
+    /// e.g. http://100.64.0.1:8787. Also settable via `parsnip config set server_url`.
+    #[arg(long, env = "PARSNIP_SERVER", global = true)]
+    pub server: Option<String>,
+
+    /// Ignore any configured server and use the local database for this invocation
+    #[arg(long, global = true, conflicts_with = "server")]
+    pub local: bool,
 
     /// Bearer token: required by `serve` for non-localhost, sent by remote-mode clients
     #[arg(long, env = "PARSNIP_AUTH_TOKEN", global = true)]
@@ -116,16 +129,20 @@ pub struct ServeArgs {
     pub allow_remote: bool,
 }
 
-// Storage type alias based on feature
-#[cfg(feature = "redb")]
-pub type Storage = RedbStorage;
-
-#[cfg(all(feature = "sqlite", not(feature = "redb")))]
-pub type Storage = SqliteStorage;
+/// Storage is chosen at runtime, not at compile time: the same binary either opens the
+/// local database or talks to a daemon over HTTP. Command handlers call through the
+/// trait either way, so they do not care which.
+pub type Storage = dyn StorageBackend;
 
 /// Application context with storage and search backends
 pub struct AppContext {
     pub storage: Arc<Storage>,
+
+    /// Present only in remote mode. Kept alongside `storage` so `search` can reach the
+    /// server-side search RPC without downcasting the trait object.
+    #[cfg(feature = "remote")]
+    pub remote: Option<Arc<RemoteStorage>>,
+
     #[cfg(feature = "fulltext")]
     pub fulltext: Option<Arc<FullTextSearchEngine>>,
 }
@@ -154,7 +171,25 @@ fn create_secure_dir(path: &Path) -> std::io::Result<()> {
 }
 
 impl AppContext {
-    pub async fn new(cli: &Cli) -> anyhow::Result<Self> {
+    pub async fn new(cli: &Cli, server_url: Option<&str>) -> anyhow::Result<Self> {
+        #[cfg(feature = "remote")]
+        if let Some(url) = server_url {
+            let remote = Arc::new(RemoteStorage::connect(url, cli.auth_token.clone()).await?);
+            tracing::debug!(url, "using remote storage");
+            return Ok(Self {
+                storage: remote.clone(),
+                remote: Some(remote),
+                // The daemon owns the search index. Opening a local one here would take
+                // the tantivy writer lock for nothing.
+                #[cfg(feature = "fulltext")]
+                fulltext: None,
+            });
+        }
+        #[cfg(not(feature = "remote"))]
+        if server_url.is_some() {
+            anyhow::bail!("--server needs a build with the `remote` feature");
+        }
+
         let data_dir = cli.data_dir();
         create_secure_dir(&data_dir)?;
 
@@ -162,7 +197,7 @@ impl AppContext {
         let storage = {
             let db_path = data_dir.join("parsnip.redb");
             tracing::debug!("Using ReDB database at: {:?}", db_path);
-            RedbStorage::open(&db_path)?
+            RedbStorage::open(&db_path).map_err(|e| explain_lock_error(e, &db_path))?
         };
 
         #[cfg(all(feature = "sqlite", not(feature = "redb")))]
@@ -191,10 +226,39 @@ impl AppContext {
 
         Ok(Self {
             storage: Arc::new(storage),
+            #[cfg(feature = "remote")]
+            remote: None,
             #[cfg(feature = "fulltext")]
             fulltext,
         })
     }
+}
+
+/// Turn redb's bare lock message into something that says what to do about it.
+///
+/// redb allows exactly one process to open a database, so a running `parsnip serve`
+/// makes every local invocation fail. The fix is to point this one at that daemon.
+#[cfg(feature = "redb")]
+fn explain_lock_error(e: parsnip_storage::StorageError, db_path: &Path) -> anyhow::Error {
+    let text = e.to_string();
+    if !text.contains("already open") {
+        return anyhow::anyhow!(e);
+    }
+
+    anyhow::anyhow!(
+        "The parsnip database is already open by another process (most likely a running \
+         `parsnip serve`).\n\
+         \n\
+         Database: {}\n\
+         \n\
+         Point this command at that daemon instead of the file:\n  \
+           parsnip --server http://127.0.0.1:8787 <command>\n  \
+           export PARSNIP_SERVER=http://127.0.0.1:8787\n  \
+           parsnip config set server_url http://127.0.0.1:8787\n\
+         \n\
+         Or stop the other process to use the database directly.",
+        db_path.display()
+    )
 }
 
 // CLI commands use a current_thread runtime for faster cold start; `serve` needs a
@@ -238,8 +302,24 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         _ => {}
     }
 
+    // Resolve where storage lives: --server, then PARSNIP_SERVER (clap merges those two),
+    // then the config file. `--local` overrides all of them for one invocation.
+    //
+    // Deliberately narrow: only `server_url` is read from the config file. The other keys
+    // (default_project, output_format, log_level) are not wired up, because `--project`
+    // has a clap default, so an unset flag is indistinguishable from an explicit
+    // `-p default`, and silently preferring the config value would change which project
+    // every existing command operates on.
+    let server_url = if cli.local {
+        None
+    } else {
+        cli.server
+            .clone()
+            .or_else(|| config::Config::load().server_url)
+    };
+
     // Initialize storage
-    let ctx = AppContext::new(&cli).await?;
+    let ctx = AppContext::new(&cli, server_url.as_deref()).await?;
 
     match &cli.command {
         Commands::Entity(args) => entity::run(args, &cli, &ctx).await?,

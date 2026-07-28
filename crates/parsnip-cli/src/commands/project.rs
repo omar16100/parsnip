@@ -4,7 +4,6 @@ use clap::{Args, Subcommand};
 
 use crate::{AppContext, Cli};
 use parsnip_core::Project;
-use parsnip_storage::StorageBackend;
 
 #[derive(Args)]
 pub struct ProjectArgs {

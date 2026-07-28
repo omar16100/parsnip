@@ -62,7 +62,18 @@ P3 server wiring:
       `Arc<dyn StorageBackend>`; covers auth, capabilities, 5MB batches, error kinds,
       and that the MCP tool surface still works alongside the storage RPC
 
-Remaining: P4 CLI wiring, P5 search+fulltext,
+P4 CLI wiring:
+- [x] `Storage` is now `dyn StorageBackend`, chosen at runtime; command handlers untouched
+- [x] `AppContext` gains `remote`, so search can reach the search RPC without downcasting
+- [x] `--server` (env `PARSNIP_SERVER`), `--local` to override, `server_url` config key
+- [x] Precedence: `--server` > `PARSNIP_SERVER` > config; only `server_url` is read from
+      config, since `--project` has a clap default and cannot be told apart from an explicit flag
+- [x] redb lock failure now explains how to point at the daemon instead of the bare message
+- [x] `sse` and `remote` are default features
+- [x] Verified live: add/get/list, relation add --weight, traverse, project stats, search
+      all work remotely with no handler changes
+
+Remaining: P5 search+fulltext,
 P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
 
 ## Pending

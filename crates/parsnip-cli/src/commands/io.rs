@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AppContext, Cli};
 use parsnip_core::{Entity, Project, Relation};
-use parsnip_storage::StorageBackend;
 
 /// Export format
 #[derive(Clone, Copy, Default, ValueEnum)]
