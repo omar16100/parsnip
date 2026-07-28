@@ -103,6 +103,15 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         query = query.in_project(project_id);
     }
 
+    // In remote mode the daemon runs the search. Pulling the whole entity set across the
+    // network per query would be wasteful, and full-text cannot work client-side at all
+    // because the index belongs to whoever owns the data.
+    #[cfg(feature = "remote")]
+    if let Some(remote) = &ctx.remote {
+        let results = remote.search(&query, Some(args.limit)).await?;
+        return render_results(&results, args, cli, ctx, scope).await;
+    }
+
     // Get entities to search
     let entities = if args.all_projects {
         ctx.storage.get_all_entities_all_projects().await?
@@ -119,13 +128,22 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         }
         #[cfg(feature = "fulltext")]
         SearchMode::FullText | SearchMode::Hybrid => {
-            if let Some(ref fulltext) = ctx.fulltext {
-                use parsnip_search::SearchEngine;
-                fulltext.search(&query, &entities).await?
-            } else {
-                tracing::warn!("Full-text search not available, falling back to exact search");
-                let search_engine = ExactSearchEngine::new();
-                search_engine.search(&query, &entities).await?
+            // Built per query against the entities just fetched, rather than reusing an
+            // on-disk index. The on-disk copy took tantivy's writer lock on every CLI
+            // invocation, including ones that never search, and it cannot exist at all in
+            // remote mode where the daemon owns the data.
+            //
+            // Results are unchanged: the on-disk index rebuilt itself whenever the reader
+            // saw no documents, and hits are filtered against `entities` either way.
+            // Cost is a full reindex per query, O(corpus). Fine at this scale, and the
+            // MCP server has always worked this way.
+            use parsnip_search::SearchEngine;
+            match parsnip_search::FullTextSearchEngine::in_memory() {
+                Ok(engine) => engine.search(&query, &entities).await?,
+                Err(e) => {
+                    tracing::warn!("Full-text search unavailable ({e}), falling back to exact");
+                    ExactSearchEngine::new().search(&query, &entities).await?
+                }
             }
         }
         #[cfg(not(feature = "fulltext"))]
@@ -140,7 +158,21 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         }
     };
 
-    let display_results: Vec<_> = results.into_iter().take(args.limit).collect();
+    render_results(&results, args, cli, ctx, scope).await
+}
+
+/// Render search results.
+///
+/// Shared by the local and the remote path so both produce identical output; that
+/// equality is what the parity test asserts.
+async fn render_results(
+    results: &[parsnip_core::Entity],
+    args: &SearchArgs,
+    _cli: &Cli,
+    ctx: &AppContext,
+    scope: &str,
+) -> anyhow::Result<()> {
+    let display_results: Vec<_> = results.iter().take(args.limit).cloned().collect();
 
     tracing::info!(
         "Search returned {} results in {}",

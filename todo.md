@@ -73,8 +73,20 @@ P4 CLI wiring:
 - [x] Verified live: add/get/list, relation add --weight, traverse, project stats, search
       all work remotely with no handler changes
 
-Remaining: P5 search+fulltext,
-P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
+P5 search + fulltext:
+- [x] `search/query` RPC handled server-side, mirroring the CLI's engine selection
+- [x] `RemoteStorage::search`; SearchQuery already carries mode/filters/scope, so no new types
+- [x] Rendering extracted so local and remote paths emit identical output
+- [x] Full-text engine built per query in memory instead of opening the on-disk index
+- [x] Verified remotely: exact, fuzzy, fulltext and hybrid all work
+
+Correction: the predicted "on-disk index is permanently stale" bug does NOT reproduce.
+0.1.0 returns current results in both directions. The real gain is that the index and its
+lock are no longer created by every invocation (0.1.0 creates the index dir even for
+`entity add`), and that remote mode must not open a local index at all. No user-visible
+search behaviour change.
+
+Remaining: P6 render layer, P7 features/dist, P8 daemon, P9 tests, P10 docs.
 
 ## Pending
 

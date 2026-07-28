@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use parsnip_core::{Entity, Graph, Project, ProjectId, Relation};
+use parsnip_core::{Entity, Graph, Project, ProjectId, Relation, SearchQuery};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -24,6 +24,10 @@ pub const MAX_BATCH_ITEMS: usize = 100;
 
 /// Approximate serialized size at which a batch is split, even if under the item count.
 pub const MAX_BATCH_BYTES: usize = 512 * 1024;
+
+/// Server-side search. Not a `storage/` method: it needs the search engines, which the
+/// storage crate deliberately does not depend on.
+const SEARCH_METHOD: &str = "search/query";
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
@@ -256,6 +260,32 @@ impl RemoteStorage {
             )
             .await?;
         decode(value)
+    }
+
+    /// Run a search on the daemon rather than pulling the corpus to search it locally.
+    ///
+    /// `SearchQuery` already carries mode, filters, project scope and thresholds, so no
+    /// new types are needed. Full-text and hybrid only work this way in remote mode: the
+    /// index belongs to whoever owns the data.
+    pub async fn search(
+        &self,
+        query: &SearchQuery,
+        limit: Option<usize>,
+    ) -> StorageResult<Vec<Entity>> {
+        #[derive(Deserialize)]
+        struct SearchResults {
+            entities: Vec<Entity>,
+        }
+
+        let value = self
+            .transport
+            .call(
+                SEARCH_METHOD,
+                serde_json::json!({ "query": query, "limit": limit }),
+            )
+            .await?;
+        let results: SearchResults = decode(value)?;
+        Ok(results.entities)
     }
 
     async fn call(&self, method: &str, params: Value) -> StorageResult<Value> {

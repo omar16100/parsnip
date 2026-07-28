@@ -85,6 +85,7 @@ impl<S: StorageBackend + ?Sized + Send + Sync + 'static> McpServer<S> {
         }
 
         match request.method.as_str() {
+            "search/query" => self.handle_search_query(request.id, request.params).await,
             "initialize" => self.handle_initialize(request.id).await,
             "initialized" => JsonRpcResponse::success(request.id, serde_json::json!({})),
             "tools/list" => self.handle_tools_list(request.id).await,
@@ -95,6 +96,78 @@ impl<S: StorageBackend + ?Sized + Send + Sync + 'static> McpServer<S> {
                 -32601,
                 format!("Method not found: {}", request.method),
             ),
+        }
+    }
+
+    /// Run a search on the server.
+    ///
+    /// Search is otherwise done client-side over the full entity set, which would mean
+    /// shipping the whole corpus per query in remote mode, and could not use full-text
+    /// at all, since the index lives with whoever owns the data. Both problems go away by
+    /// running the query here.
+    ///
+    /// Engine selection mirrors the CLI's so local and remote results match.
+    async fn handle_search_query(
+        &self,
+        id: serde_json::Value,
+        params: serde_json::Value,
+    ) -> JsonRpcResponse {
+        #[derive(Deserialize)]
+        struct SearchParams {
+            query: SearchQuery,
+            #[serde(default)]
+            limit: Option<usize>,
+        }
+
+        let params: SearchParams = match serde_json::from_value(params) {
+            Ok(p) => p,
+            Err(e) => {
+                return JsonRpcResponse::error(id, -32602, format!("Invalid search params: {e}"))
+            }
+        };
+        let query = params.query;
+
+        let entities = match &query.projects {
+            parsnip_core::ProjectScope::Single(project_id) => {
+                self.storage.get_all_entities(project_id).await
+            }
+            _ => self.storage.get_all_entities_all_projects().await,
+        };
+        let entities = match entities {
+            Ok(e) => e,
+            Err(e) => return JsonRpcResponse::error(id, -32000, format!("Storage error: {e}")),
+        };
+
+        let results = match query.mode {
+            SearchMode::Fuzzy => FuzzySearchEngine::new().search(&query, &entities).await,
+            #[cfg(feature = "fulltext")]
+            SearchMode::FullText | SearchMode::Hybrid => match FullTextSearchEngine::in_memory() {
+                Ok(engine) => engine.search(&query, &entities).await,
+                Err(e) => {
+                    tracing::warn!("full-text unavailable, falling back to exact: {e}");
+                    ExactSearchEngine::new().search(&query, &entities).await
+                }
+            },
+            #[cfg(not(feature = "fulltext"))]
+            SearchMode::FullText | SearchMode::Hybrid => {
+                ExactSearchEngine::new().search(&query, &entities).await
+            }
+            _ => ExactSearchEngine::new().search(&query, &entities).await,
+        };
+
+        match results {
+            Ok(mut results) => {
+                if let Some(limit) = params.limit {
+                    results.truncate(limit);
+                }
+                match serde_json::to_value(&results) {
+                    Ok(value) => {
+                        JsonRpcResponse::success(id, serde_json::json!({"entities": value}))
+                    }
+                    Err(e) => JsonRpcResponse::error(id, -32000, format!("Encode error: {e}")),
+                }
+            }
+            Err(e) => JsonRpcResponse::error(id, -32000, format!("Search error: {e}")),
         }
     }
 

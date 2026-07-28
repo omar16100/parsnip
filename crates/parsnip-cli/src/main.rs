@@ -23,9 +23,6 @@ use parsnip_storage::SqliteStorage;
 #[cfg(feature = "remote")]
 use parsnip_storage::remote::client::RemoteStorage;
 
-#[cfg(feature = "fulltext")]
-use parsnip_search::FullTextSearchEngine;
-
 #[derive(Parser)]
 #[command(name = "parsnip")]
 #[command(
@@ -142,9 +139,6 @@ pub struct AppContext {
     /// server-side search RPC without downcasting the trait object.
     #[cfg(feature = "remote")]
     pub remote: Option<Arc<RemoteStorage>>,
-
-    #[cfg(feature = "fulltext")]
-    pub fulltext: Option<Arc<FullTextSearchEngine>>,
 }
 
 /// Create directory with secure permissions (0700 on Unix)
@@ -179,10 +173,6 @@ impl AppContext {
             return Ok(Self {
                 storage: remote.clone(),
                 remote: Some(remote),
-                // The daemon owns the search index. Opening a local one here would take
-                // the tantivy writer lock for nothing.
-                #[cfg(feature = "fulltext")]
-                fulltext: None,
             });
         }
         #[cfg(not(feature = "remote"))]
@@ -207,29 +197,21 @@ impl AppContext {
             SqliteStorage::open(&db_path)?
         };
 
-        // Initialize full-text search index
-        #[cfg(feature = "fulltext")]
-        let fulltext = {
-            let index_path = data_dir.join("index");
-            create_secure_dir(&index_path)?;
-            match FullTextSearchEngine::new(&index_path) {
-                Ok(engine) => {
-                    tracing::debug!("Full-text search index at: {:?}", index_path);
-                    Some(Arc::new(engine))
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to initialize full-text search: {}", e);
-                    None
-                }
-            }
-        };
+        // Full-text search is built on demand by the search command, not here.
+        //
+        // Opening the on-disk index eagerly took tantivy's writer lock on every single
+        // invocation, including ones that never search (`entity add` created the index
+        // directory), which is a second process-wide lock on top of redb's. Remote mode
+        // must not take it at all, since the daemon owns the data.
+        //
+        // Results are unaffected: hits are filtered against the entity slice passed in,
+        // and the index rebuilds when the reader sees no documents, so the on-disk copy
+        // was providing freshness rather than reuse.
 
         Ok(Self {
             storage: Arc::new(storage),
             #[cfg(feature = "remote")]
             remote: None,
-            #[cfg(feature = "fulltext")]
-            fulltext,
         })
     }
 }
