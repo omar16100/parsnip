@@ -59,7 +59,8 @@ Two crashes in the released 0.1.0, both surfaced by tests written for this work:
   `-p` target-project/project). Long forms are unchanged; only the shorts were removed.
 - `parsnip export` panicked at parse time with "Mismatch between definition and access of
   `format`": the global `--format` (String) and export's own `--format` (enum) shared a
-  clap arg id. `--format` is no longer `global`.
+  clap arg id. Resolved for good in P6: there is now one global `--format` enum and export
+  uses it rather than declaring a second one.
 
 One data-loss race, introduced by making the graph shared and caught before release:
 concurrent clients creating the same new project each minted a different `ProjectId`, and
@@ -113,8 +114,9 @@ state. Use the daemon, or stop it first.
 
 ## Verification performed
 
-- `cargo test --workspace`: 80 tests pass, including the conformance suite (local and remote
-  backends held to identical assertions), the SSE contract tests, and the end-to-end suite.
+- `cargo test --workspace`: 101 tests pass, including the conformance suite (local and
+  remote backends held to identical assertions), the SSE contract tests, the end-to-end
+  suite, and the output-format goldens.
 - Acceptance criterion, as a test and by hand: with the daemon holding the lock, a local
   command fails with an error naming `--server`, and the same command through the daemon
   succeeds.
@@ -124,12 +126,11 @@ state. Use the daemon, or stop it first.
 - From the other Mac: the proxy command answers `initialize` and returns real
   `search_knowledge` results, without opening the database.
 - `lsof` confirms exactly one process holds `parsnip.redb`: the daemon.
+- `--format json` and `--format csv` verified against the live daemon as well as locally,
+  and table output confirmed unchanged.
 
 ## Follow-ups
 
-- **P6, the render layer.** `output.rs` is dead code with "not yet implemented" stubs, and
-  every handler prints inline, so `-f json` and `-f csv` do nothing. Needs a shared view and
-  render path, with golden tests pinning current table output.
 - **Chatty paths.** `traverse`, `find-path` and `--include-relations` still pull whole
   projects to the client. Measure before adding RPCs for them.
 - **Import atomicity.** The local redb backend commits a batch in one transaction; over the
