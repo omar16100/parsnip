@@ -258,13 +258,14 @@ impl<S: StorageBackend + ?Sized + Send + Sync + 'static> McpServer<S> {
         }
     }
 
+    /// Goes through the storage dispatcher rather than a local get-then-create, so MCP
+    /// tool calls and storage RPC clients in the same daemon share one lock and cannot
+    /// mint two ids for the same new project.
     async fn get_or_create_project(&self, project_name: &str) -> anyhow::Result<Project> {
-        if let Some(project) = self.storage.get_project(project_name).await? {
-            return Ok(project);
-        }
-        let project = Project::new(project_name);
-        self.storage.save_project(&project).await?;
-        Ok(project)
+        self.dispatcher
+            .get_or_create_project(project_name)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     async fn handle_search(&self, args: serde_json::Value) -> ToolCallResponse {

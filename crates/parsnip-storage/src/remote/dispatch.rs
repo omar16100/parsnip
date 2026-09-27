@@ -45,22 +45,19 @@ impl<S: StorageBackend + ?Sized> StorageDispatcher<S> {
 
     /// Resolve a project by name, creating it if absent, without racing.
     ///
-    /// The CLI resolves project names with a get-then-create that lives in three command
-    /// modules. Run concurrently by two clients against one daemon, both observe `None`,
-    /// both mint a different `ProjectId`, and both save. The last write wins the name
-    /// while the loser's entities stay keyed under an id no name resolves to, so they
-    /// silently disappear. Holding a lock across the pair closes that window.
-    async fn get_or_create_project(&self, name: &str) -> Result<Project, WireError> {
+    /// Run concurrently by two clients against one daemon, a plain get-then-create lets
+    /// both observe `None`, both mint a different `ProjectId`, and both save. The last
+    /// write wins the name while the loser's entities stay keyed under an id no name
+    /// resolves to, so they silently disappear. Holding a lock across the pair closes
+    /// that window.
+    ///
+    /// Public so the MCP tool surface in the same process resolves projects through the
+    /// same lock as storage RPC clients; a second, unlocked path would reopen the race.
+    /// When the backend is itself remote (an MCP proxy), its override delegates to the
+    /// daemon's atomic call, so the lock here only has to cover this process.
+    pub async fn get_or_create_project(&self, name: &str) -> Result<Project, WireError> {
         let _guard = self.project_create_lock.lock().await;
-
-        if let Some(existing) = self.backend.get_project(name).await.map_err(wire)? {
-            return Ok(existing);
-        }
-
-        let project = Project::new(name);
-        self.backend.save_project(&project).await.map_err(wire)?;
-        tracing::debug!(project = name, id = %project.id, "created project via storage RPC");
-        Ok(project)
+        self.backend.get_or_create_project(name).await.map_err(wire)
     }
 
     /// Run one storage RPC call.

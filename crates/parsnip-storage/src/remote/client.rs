@@ -248,20 +248,6 @@ impl RemoteStorage {
         Self { transport }
     }
 
-    /// Resolve a project by name, creating it if absent, in one atomic server-side call.
-    ///
-    /// The CLI's local get-then-create races between clients; this does not.
-    pub async fn get_or_create_project(&self, name: &str) -> StorageResult<Project> {
-        let value = self
-            .transport
-            .call(
-                method::GET_OR_CREATE_PROJECT,
-                serde_json::json!({"name": name}),
-            )
-            .await?;
-        decode(value)
-    }
-
     /// Run a search on the daemon rather than pulling the corpus to search it locally.
     ///
     /// `SearchQuery` already carries mode, filters, project scope and thresholds, so no
@@ -505,6 +491,18 @@ impl StorageBackend for RemoteStorage {
         self.call(method::DELETE_PROJECT, serde_json::json!({ "name": name }))
             .await?;
         Ok(())
+    }
+
+    /// One atomic server-side call instead of the default get-then-create, which races
+    /// between clients sharing a daemon (see the trait method).
+    async fn get_or_create_project(&self, name: &str) -> StorageResult<Project> {
+        decode(
+            self.call(
+                method::GET_OR_CREATE_PROJECT,
+                serde_json::json!({ "name": name }),
+            )
+            .await?,
+        )
     }
 
     /// Overridden rather than inherited: the default implementation issues two calls.
