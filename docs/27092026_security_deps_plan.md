@@ -32,7 +32,8 @@ lz4_flex, #4 bytes, #5 oneshot, #7 rand). Those PRs predate the remote mode merg
    0.26 moves to `lru ^0.16.3`, which is an index-format and API upgrade, not a lockfile
    change. The advisory is a Stacked Borrows violation in `IterMut`. tantivy 0.22.1 keeps
    its `LruCache` private inside the doc store's block cache and only calls `new`, `get`,
-   `put`, `len` and `peek_lru`; parsnip does not depend on `lru` directly. The alert is
+   `put` and `len` (plus `peek_lru` in its own tests); parsnip does not depend on `lru`
+   directly. The alert is
    dismissed as tolerable risk with that reason, and a tantivy upgrade is listed as a
    follow-up in the root `todo.md`.
 
@@ -40,7 +41,10 @@ lz4_flex, #4 bytes, #5 oneshot, #7 rand). Those PRs predate the remote mode merg
 
 - `cargo test --workspace --locked`: 114 passed.
 - `cargo test --workspace --all-features --locked`: 121 passed.
-- `cargo clippy --workspace --all-targets --locked -- -D warnings` and `cargo fmt --check`: clean.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings` (Rust 1.95.0 and 1.98.0) and
+  `cargo fmt --check`: clean.
+- Codex review (`oss_sweep_parsnip_security_deps.txt`): no blocker or major findings. Applied:
+  tantivy calls `peek_lru` only in its tests; clippy rerun on the CI toolchain line (1.98).
 - `cargo +1.88.0 check --workspace --all-targets --locked`: passes.
 - `cargo build -p parsnip-cli --no-default-features --features redb` and `--features sqlite`:
   pass. (`--no-default-features` with no backend at all does not compile; that was already
