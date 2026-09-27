@@ -870,15 +870,16 @@ pager = true                        # Use pager for long output
 
 ### Distribution Channels
 
-Available (checked 27 Sep 2026):
+Available (27 Sep 2026):
 
-- GitHub Releases: v0.1.0 binaries for Linux x86_64, macOS x86_64 and macOS arm64
-  (no checksums file is attached to that release)
-- Cargo: `cargo install parsnip-cli` installs 0.1.0 (the `parsnip` crate on crates.io
+- GitHub Releases: v0.2.0 binaries for Linux x86_64, macOS x86_64 and macOS arm64, with
+  a `checksums.sha256` file (v0.1.0 has the same binaries without checksums)
+- Cargo: `cargo install parsnip-cli` installs 0.2.0 (the `parsnip` crate on crates.io
   is an unrelated project)
+- Homebrew: `brew install omar16100/tap/parsnip` (macOS arm64 and x86_64, Linux x86_64)
 - Source: `cargo install --git https://github.com/omar16100/parsnip parsnip-cli`
 
-Planned, not published: Homebrew formula, Docker image, Nix flake, Windows and
+Planned, not published: Docker image, Nix flake, Windows and
 Linux ARM64 or musl binaries.
 
 ## Appendix L: Testing Strategy

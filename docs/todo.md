@@ -112,7 +112,7 @@
 - Batch writes in storage/import: single transaction for bulk entity/relation saves
 - Fixed N+1 relation reads in CLI search: pre-fetch relations once per project, index by entity name
 - tokio current_thread runtime for CLI: faster cold start (no multi-thread overhead)
-- install.sh SHA256 checksum verification: verifies downloaded binary against checksums.sha256
+- install.sh SHA256 checksum verification: verifies the downloaded binary against checksums.sha256 when sha256sum/shasum and the file are available; otherwise warns and skips
 - projectId field descriptions clarified: now documented as "Project name for data isolation"
 
 ### CLI Features (v0.5.x)
@@ -138,8 +138,8 @@
 - GitHub Actions CI: `.github/workflows/ci.yml` (test, clippy, format on push/PR)
 - GitHub Actions Release: `.github/workflows/release.yml` (publish to crates.io on tag, build binaries)
 - Universal shell installer: `install.sh` (curl | sh)
-- Homebrew tap: planned, not published. `omar16100/homebrew-tap` has no `parsnip` formula (checked 27 Sep 2026)
-- Website updated with tabbed install options (Shell, Cargo). The Homebrew tab was removed on 27 Sep 2026 because no formula exists
+- Homebrew tap: `brew install omar16100/tap/parsnip` (formula for 0.2.0 added to `omar16100/homebrew-tap` on 27 Sep 2026)
+- Website install tabs: Shell, Cargo, Homebrew (Homebrew tab restored on 27 Sep 2026 once the formula existed)
 
 ### Landing Page UI/UX Improvements (v0.6.x)
 
@@ -195,18 +195,18 @@
 ## Installation
 
 ```bash
-# Shell (0.1.0 release binary, Linux x86_64 and macOS)
+# Shell (latest release binary, Linux x86_64 and macOS)
 curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh
 
-# Cargo (0.1.0 from crates.io)
+# Cargo (latest release from crates.io, 0.2.0 includes remote mode)
 cargo install parsnip-cli
 
-# Latest source, including remote mode
+# Homebrew (macOS, Linux x86_64)
+brew install omar16100/tap/parsnip
+
+# Source
 cargo install --git https://github.com/omar16100/parsnip parsnip-cli
 ```
-
-Homebrew is planned but not published: there is no `parsnip` formula in
-`omar16100/homebrew-tap` (checked 27 Sep 2026).
 
 ## CLI Usage Examples
 

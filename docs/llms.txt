@@ -10,7 +10,7 @@ Key capabilities:
 - Cross-project search without mixing namespaces
 - Graph traversal with BFS, Dijkstra shortest path, and filtered exploration
 - MCP server with 13 tools for AI assistant integration
-- Remote mode (unreleased, build from source): one `parsnip serve` daemon owns the database; CLI and MCP processes reach it over HTTP
+- Remote mode (0.2.0 and later): one `parsnip serve` daemon owns the database; CLI and MCP processes reach it over HTTP
 - CLI for manual knowledge management
 - JSON import/export for backup and migration
 
@@ -24,9 +24,11 @@ Performance targets (design goals, not benchmarked): <10ms cold start, <5ms sear
 ## Installation
 
 The binary is `parsnip`; the crate is `parsnip-cli` (the crates.io crate named `parsnip` is unrelated).
-- Cargo (0.1.0 from crates.io): `cargo install parsnip-cli`
-- Shell (0.1.0 release binary, Linux x86_64 and macOS): `curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh`
-- Latest source, including remote mode: `cargo install --git https://github.com/omar16100/parsnip parsnip-cli`
+- Cargo (latest release from crates.io, 0.2.0): `cargo install parsnip-cli`
+- Shell (latest release binary, Linux x86_64 and macOS; checked against `checksums.sha256` when a sha256 tool and the file are available, otherwise the check is skipped with a warning): `curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh`
+- Homebrew (macOS, Linux x86_64): `brew install omar16100/tap/parsnip`
+- Source: `cargo install --git https://github.com/omar16100/parsnip parsnip-cli`
+- Changes per version: [CHANGELOG.md](https://github.com/omar16100/parsnip/blob/main/CHANGELOG.md)
 
 ## MCP Integration
 
@@ -93,7 +95,7 @@ Server:
 - `parsnip serve` - Start MCP server on stdio
 - `parsnip serve -t sse --port 3000` - Start HTTP/SSE server
 
-Remote mode (source builds):
+Remote mode (0.2.0 and later):
 - `parsnip --local serve -t sse --port 8787` with `PARSNIP_AUTH_TOKEN` set - Start the daemon
 - `parsnip --server http://127.0.0.1:8787 entity list` or `export PARSNIP_SERVER=...` - Use it from the CLI
 - `parsnip serve` with `PARSNIP_SERVER` set - MCP stdio proxy that never opens the database
@@ -110,9 +112,9 @@ Projects are namespaces that isolate entities and relations. Cross-project searc
 
 Default storage: ReDB - embedded key-value store with ACID transactions at `~/.local/share/parsnip/parsnip.redb` (Linux) or `~/Library/Application Support/parsnip/parsnip.redb` (macOS)
 
-Alternative: SQLite (build with `--no-default-features --features sqlite,fulltext`) at `parsnip.sqlite` in the same directory
+Alternative: SQLite (build with `--no-default-features --features sqlite,fulltext,sse,remote`) at `parsnip.sqlite` in the same directory
 
-Full-text search: 0.1.0 keeps a Tantivy index under `index/` in the data directory; current source builds it in memory per query
+Full-text search: 0.2.0 builds the Tantivy index in memory per query (0.1.0 kept one under `index/` in the data directory)
 
 ## Optional
 
