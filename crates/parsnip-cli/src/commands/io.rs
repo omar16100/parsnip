@@ -107,7 +107,9 @@ pub async fn run_import(args: &ImportArgs, _cli: &Cli, ctx: &AppContext) -> anyh
         // a concurrent client creating the same name cannot end up with a different id.
         let existed = ctx.storage.get_project(project_name).await?.is_some();
         let mut project = ctx.storage.get_or_create_project(project_name).await?;
-        if existed && !args.merge {
+        // Checked on the resolved project, not on `existed`: another client may have
+        // created and filled it between the two calls.
+        if !args.merge {
             let entity_count = ctx.storage.get_all_entities(&project.id).await?.len();
             if entity_count > 0 {
                 anyhow::bail!(
@@ -410,9 +412,8 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
 
     // Get project name
     let project_name = args.target_project.as_deref().unwrap_or("default");
-    let existed = ctx.storage.get_project(project_name).await?.is_some();
     let project = ctx.storage.get_or_create_project(project_name).await?;
-    if existed && !args.merge {
+    if !args.merge {
         let entity_count = ctx.storage.get_all_entities(&project.id).await?.len();
         if entity_count > 0 {
             anyhow::bail!(

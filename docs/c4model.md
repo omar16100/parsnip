@@ -137,7 +137,9 @@ Both paths render through the same function, so their output is identical.
   do get-then-create over the wire. Doing it client-side loses data: entity keys embed the
   project UUID, so the loser of a race leaves rows under an id no name resolves to.
   `project create` and `import` resolve through the same method. The dispatcher's
-  `storage/save_project` refuses to bind an existing name to a different id.
+  `storage/save_project` refuses to bind an existing name to a different id. SQLite, which
+  several processes may open at once, overrides the method with `INSERT OR IGNORE` plus a
+  read-back so it is atomic across processes too.
 - **Validation.** The dispatcher enforces batch-size limits, which bound per-request memory
   on a shared daemon. It deliberately does not enforce name and observation lengths, because
   the local path does not either, and diverging would make remote mode reject data local
@@ -172,4 +174,4 @@ Both paths render through the same function, so their output is identical.
 | Date | Change |
 |---|---|
 | 28 Jul 2026 | Remote client mode: storage RPC (`storage/*`, `search/query`), `RemoteStorage`, runtime storage selection, daemon as sole database owner. |
-| 27 Sep 2026 | MCP tool surface, MCP proxies, `project create` and `import` resolve projects through the same atomic path as the storage RPC; `save_project` cannot rebind a name. Constant-time token check, hidden in help, empty token refused, no-token warning and loopback `Host` guard; bind host resolved and vetted before storage opens; no client redirects. Pagination clamped for network input; multi-project search scope honoured; `search/query` not broadcast. Format checked before mutations. Logs to stderr; `--local` overrides an exported `PARSNIP_SERVER`. MSRV 1.85. |
+| 27 Sep 2026 | MCP tool surface, MCP proxies, `project create` and `import` resolve projects through the same atomic path as the storage RPC; `save_project` cannot rebind a name. Constant-time token check, hidden in help, empty token refused, no-token warning and loopback `Host` guard; bind host resolved and vetted before storage opens; no client redirects. Pagination clamped for network input; multi-project search scope honoured; `search/query` not broadcast. Format checked before mutations. SQLite project creation atomic across processes. Logs to stderr (no ANSI codes when not a terminal); `--local` overrides an exported `PARSNIP_SERVER`. MSRV 1.85. |

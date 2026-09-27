@@ -30,7 +30,7 @@ Note: if `cargo` fails due to missing workspace members, add the missing crate `
 
 ## Coding Style & Naming Conventions
 
-- Rust edition is 2021; keep the MSRV in `Cargo.toml` (`rust-version = "1.75"`).
+- Rust edition is 2021; keep the MSRV in `Cargo.toml` (`rust-version = "1.85"`, required by the locked redb).
 - Prefer workspace dependencies: add to `[workspace.dependencies]`, then reference via `{ workspace = true }`.
 - Naming: `snake_case` for modules/functions, `UpperCamelCase` for types/traits, `SCREAMING_SNAKE_CASE` for constants.
 - Errors: use `thiserror` for library error enums; use `anyhow` for binary entrypoints.

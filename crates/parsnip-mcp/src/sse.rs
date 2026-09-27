@@ -135,11 +135,24 @@ fn host_is_loopback(headers: &HeaderMap) -> bool {
         return false;
     };
 
-    // Strip the port: "[::1]:8787" -> "::1", "localhost:8787" -> "localhost".
+    // Strip the port: "[::1]:8787" -> "::1", "localhost:8787" -> "localhost". Anything
+    // after the host other than ":<digits>" is malformed and rejected.
+    let valid_port = |port: &str| !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit());
     let name = if let Some(rest) = host.strip_prefix('[') {
-        rest.split(']').next().unwrap_or("")
+        let Some((inner, after)) = rest.split_once(']') else {
+            return false;
+        };
+        match after.strip_prefix(':') {
+            None if after.is_empty() => inner,
+            Some(port) if valid_port(port) => inner,
+            _ => return false,
+        }
     } else {
-        host.rsplit_once(':').map_or(host, |(name, _port)| name)
+        match host.rsplit_once(':') {
+            Some((name, port)) if valid_port(port) => name,
+            Some(_) => return false,
+            None => host,
+        }
     };
 
     name.eq_ignore_ascii_case("localhost")
@@ -351,6 +364,10 @@ mod tests {
             "192.168.1.10:8787",
             "[fe80::1]:8787",
             "0.0.0.0:8787",
+            "[::1]junk",
+            "[::1]:80x",
+            "localhost:",
+            "127.0.0.1:abc",
         ] {
             assert!(
                 !host_is_loopback(&with_host(host)),

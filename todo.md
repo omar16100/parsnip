@@ -146,6 +146,8 @@ Plan: [docs/27092026_publish_remote_mode_plan.md](docs/27092026_publish_remote_m
       pagination clamp (zero page size aborted the daemon), loopback Host guard, vetted bind
       host, token hidden in help and refused when empty, no SSE broadcast of search, multi-project
       scope, no client redirects, `--format` checked before mutations, MSRV 1.85
+- [x] Review round 2 fixes: import `--merge` check on the resolved project, SQLite atomic
+      project creation across processes, stricter Host parsing, IPv4 preference for `--host` names
 - [ ] Follow-up: transactional or compare-and-swap entity updates (concurrent edits are last-write-wins)
 - [ ] Follow-up: coordinate project deletion with concurrent writers
 - [ ] Follow-up: route MCP SSE responses to the originating session instead of broadcasting

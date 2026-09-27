@@ -430,6 +430,34 @@ impl StorageBackend for SqliteStorage {
         }
     }
 
+    /// Atomic even across processes, which SQLite (unlike redb) allows to share one file:
+    /// `INSERT OR IGNORE` lets only the first writer bind the name, and every caller then
+    /// reads back that row. The trait default's get-then-create would let two processes
+    /// each mint an id and the later `INSERT OR REPLACE` orphan the other's entities.
+    async fn get_or_create_project(&self, name: &str) -> StorageResult<Project> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let fresh = Project::new(name);
+        let fresh_data = serde_json::to_string(&fresh)?;
+        conn.execute(
+            "INSERT OR IGNORE INTO projects (name, data) VALUES (?1, ?2)",
+            params![name, fresh_data],
+        )
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        let data: String = conn
+            .query_row(
+                "SELECT data FROM projects WHERE name = ?1",
+                params![name],
+                |row| row.get(0),
+            )
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        Ok(serde_json::from_str(&data)?)
+    }
+
     async fn get_project_by_id(&self, id: &ProjectId) -> StorageResult<Option<Project>> {
         let conn = self
             .conn
@@ -531,6 +559,26 @@ impl StorageBackend for SqliteStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Two connections to one file stand in for two processes: both must resolve a new
+    /// name to the same project id, and neither may replace the other's.
+    #[tokio::test]
+    async fn get_or_create_project_agrees_across_connections() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("shared.sqlite");
+        let a = SqliteStorage::open(&path).unwrap();
+        let b = SqliteStorage::open(&path).unwrap();
+        a.initialize().await.unwrap();
+
+        let first = a.get_or_create_project("shared").await.unwrap();
+        let second = b.get_or_create_project("shared").await.unwrap();
+        assert_eq!(first.id, second.id);
+        assert_eq!(
+            a.get_project("shared").await.unwrap().unwrap().id,
+            first.id,
+            "the name must still resolve to the first id"
+        );
+    }
 
     #[tokio::test]
     async fn test_sqlite_storage() {

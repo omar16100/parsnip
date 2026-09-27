@@ -342,7 +342,14 @@ async fn resolve_bind(
             .map_err(|e| anyhow::anyhow!("cannot resolve --host {}: {e}", args.host))?
             .collect(),
     };
-    let Some(first) = addrs.first().copied() else {
+    // Prefer IPv4 when a name resolves to both families, so `--host localhost` listens where
+    // `http://127.0.0.1:<port>` clients will look.
+    let Some(first) = addrs
+        .iter()
+        .find(|a| a.is_ipv4())
+        .or_else(|| addrs.first())
+        .copied()
+    else {
         anyhow::bail!("--host {} resolved to no addresses", args.host);
     };
     let is_loopback = addrs.iter().all(|a| a.ip().is_loopback());
@@ -391,7 +398,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     // Logs go to stderr: stdout carries command output, and for `serve --transport stdio`
     // it carries the JSON-RPC stream, which a stray log line would corrupt.
     tracing_subscriber::registry()
-        .with(fmt::layer().with_writer(std::io::stderr))
+        .with(
+            fmt::layer()
+                .with_writer(std::io::stderr)
+                // No colour codes in log files (e.g. a launchd daemon's StandardErrorPath).
+                .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr())),
+        )
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| filter.into()))
         .init();
 
