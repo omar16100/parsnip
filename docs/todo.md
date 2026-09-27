@@ -138,8 +138,8 @@
 - GitHub Actions CI: `.github/workflows/ci.yml` (test, clippy, format on push/PR)
 - GitHub Actions Release: `.github/workflows/release.yml` (publish to crates.io on tag, build binaries)
 - Universal shell installer: `install.sh` (curl | sh)
-- Homebrew tap: `brew install omar16100/tap/parsnip`
-- Website updated with tabbed install options (Shell, Cargo, Homebrew)
+- Homebrew tap: planned, not published. `omar16100/homebrew-tap` has no `parsnip` formula (checked 27 Sep 2026)
+- Website updated with tabbed install options (Shell, Cargo). The Homebrew tab was removed on 27 Sep 2026 because no formula exists
 
 ### Landing Page UI/UX Improvements (v0.6.x)
 
@@ -195,15 +195,18 @@
 ## Installation
 
 ```bash
-# Shell (Linux/macOS)
+# Shell (0.1.0 release binary, Linux x86_64 and macOS)
 curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh
 
-# Cargo
+# Cargo (0.1.0 from crates.io)
 cargo install parsnip-cli
 
-# Homebrew (macOS)
-brew install omar16100/tap/parsnip
+# Latest source, including remote mode
+cargo install --git https://github.com/omar16100/parsnip parsnip-cli
 ```
+
+Homebrew is planned but not published: there is no `parsnip` formula in
+`omar16100/homebrew-tap` (checked 27 Sep 2026).
 
 ## CLI Usage Examples
 

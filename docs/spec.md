@@ -857,7 +857,7 @@ pager = true                        # Use pager for long output
 
 ## Appendix K: Build & Distribution
 
-### Build Targets
+### Build Targets (Target)
 
 | Target                       | Notes                        |
 |------------------------------|------------------------------|
@@ -870,11 +870,16 @@ pager = true                        # Use pager for long output
 
 ### Distribution Channels
 
-- GitHub Releases (binaries + checksums)
-- Homebrew: `brew install parsnip`
-- Cargo: `cargo install parsnip`
-- Docker: `ghcr.io/parsnip-ai/parsnip:latest`
-- Nix: `nix run github:parsnip-ai/parsnip`
+Available (checked 27 Sep 2026):
+
+- GitHub Releases: v0.1.0 binaries for Linux x86_64, macOS x86_64 and macOS arm64
+  (no checksums file is attached to that release)
+- Cargo: `cargo install parsnip-cli` installs 0.1.0 (the `parsnip` crate on crates.io
+  is an unrelated project)
+- Source: `cargo install --git https://github.com/omar16100/parsnip parsnip-cli`
+
+Planned, not published: Homebrew formula, Docker image, Nix flake, Windows and
+Linux ARM64 or musl binaries.
 
 ## Appendix L: Testing Strategy
 

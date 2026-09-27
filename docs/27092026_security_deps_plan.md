@@ -1,7 +1,6 @@
 # Security dependency updates
 
-Status: **in review** (branch `chore/security-deps-27092026`). Lockfile and MSRV only; no
-source changes.
+Status: **merged** (#8, 27 Sep 2026). Lockfile and MSRV only; no source changes.
 
 ## Context
 
