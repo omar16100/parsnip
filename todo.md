@@ -161,6 +161,11 @@ Plan: [docs/27092026_security_deps_plan.md](docs/27092026_security_deps_plan.md)
 - [x] `lru` alert 1 dismissed as tolerable risk: tantivy 0.22 pins `lru ^0.12` and never calls `IterMut`
 - [ ] Follow-up: upgrade tantivy to 0.26 (brings `lru ^0.16.3`, `lz4_flex ^0.13`; index format and API changes)
 
+### Homebrew claims on the published docs (27 Sep 2026)
+Plan: [docs/27092026_homebrew_claims_plan.md](docs/27092026_homebrew_claims_plan.md).
+- [x] `docs/todo.md` (served as `todo.html`): Homebrew marked planned, not published; install block matches `llms.txt`
+- [x] `docs/spec.md` Appendix K: available channels separated from planned ones (no Homebrew, Docker, Nix; `parsnip` crate is unrelated)
+
 ## Pending
 
 (none)

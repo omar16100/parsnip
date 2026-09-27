@@ -25,6 +25,7 @@
 | [28072026_remote_mode_plan.md](28072026_remote_mode_plan.md) | Plan | Remote client mode: one daemon owns the database, everything else reaches it over HTTP. |
 | [27092026_publish_remote_mode_plan.md](27092026_publish_remote_mode_plan.md) | Plan | Publishing remote mode to main: history scrub, fixes from review, README and site corrections. |
 | [27092026_security_deps_plan.md](27092026_security_deps_plan.md) | Plan | Dependabot security alerts: lockfile updates, MSRV 1.88, and the `lru` alert that needs a tantivy upgrade. |
+| [27092026_homebrew_claims_plan.md](27092026_homebrew_claims_plan.md) | Plan | Published docs no longer present a Homebrew install (no formula exists) or other channels that were never shipped. |
 | [spec.md](spec.md) | Reference | Original product specification. Performance numbers in it are targets. |
 | [todo.md](todo.md) | Reference | Original phase checklist from the initial build. Current work is tracked in the root [todo.md](../todo.md). |
 | [llms.txt](llms.txt) | Reference | Machine-readable project summary, served by the website. |
