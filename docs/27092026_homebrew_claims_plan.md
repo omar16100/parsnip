@@ -1,6 +1,6 @@
 # Homebrew and install claims on the published docs
 
-Status: **in review** (branch `docs/homebrew-not-published`). Docs only; no code changes.
+Status: **merged** (#9, 27 Sep 2026). Docs only; no code changes.
 
 ## Context
 
@@ -32,5 +32,5 @@ flake, neither of which exists.
 
 ## Status
 
-- [x] Edits
-- [ ] Review, merge, Pages rebuild confirmed
+- [x] Edits, review, merge (#9)
+- Pages rebuild and the live `todo.html` check run after merge; the result is posted on #9.
