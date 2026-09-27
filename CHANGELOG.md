@@ -43,19 +43,23 @@ named `parsnip` is an unrelated project) or from the binaries on the GitHub rele
 ### Changed
 
 - `--format json` and `--format csv` now take effect for `entity`, `relation`, `project`
-  and `search` (they were parsed and ignored). JSON works for all of their subcommands
-  except `project use`, which still prints text. CSV works for `entity list`,
-  `relation list`, `project list` and `search`; the other subcommands in those groups exit
-  with status 2 before doing anything. `--format` is one global option, and `export` reads
-  it (`json`, `csv` or `graphml`).
+  and `search` (they were parsed and ignored). With `--format json` their results are
+  JSON, but some messages are still plain text on stdout: `project use`, "not found" and
+  "already exists" notices, delete confirmations, and warnings such as a tag that is not on
+  the entity. CSV works for `entity list`, `relation list`, `project list` and `search`;
+  the other subcommands in those groups exit with status 2 before doing anything.
+  `--format` is one global option, and `export` reads it (`json`, `csv` or `graphml`).
 - Breaking: short options that collided with global ones are gone. Use `--force` for
   `entity delete` and `project delete`, `--description` for `project create`, `--depth` for
   `relation traverse` and `--target-project` for `import`; `-f`, `-d` and `-p` now always
   mean `--format`, `--data-dir` and `--project`.
 - Breaking for library users: `StorageBackend` implementations must provide
   `get_all_relations_all_projects` and `get_relations_for_entity_global` (the other new
-  methods have default implementations), and `Relation` struct literals need the two new
-  fields.
+  methods have default implementations); `Relation` struct literals need the two new
+  fields; `StorageError` has a new `Remote` variant; in `parsnip-mcp`, the unused
+  `handlers::ToolHandler` is gone, `JsonRpcResponse.jsonrpc` is a `String`, `JsonRpcError`
+  has a `data` field, and `StdioTransport::read_request` takes `&mut self` on an instance
+  from `StdioTransport::new()`.
 - `project stats` breakdowns and `relation traverse` entity lists print in a stable,
   sorted order.
 - Full-text search builds its Tantivy index in memory per query instead of keeping one
@@ -75,7 +79,8 @@ named `parsnip` is an unrelated project) or from the binaries on the GitHub rele
 - Releases include a `checksums.sha256` file, which `install.sh` checks.
 - Documentation: install instructions name the `parsnip-cli` crate, a Remote Mode section
   was added, performance figures are labelled as design targets, and the README and site
-  no longer list a `vector` search mode or feature, which was never implemented.
+  no longer list a `vector` search mode, which the CLI and MCP server never offered (the
+  `parsnip-search` crate has an optional `vector` engine that neither of them uses).
 
 ### Fixed
 
