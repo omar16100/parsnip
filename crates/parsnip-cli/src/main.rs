@@ -39,11 +39,10 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub data_dir: Option<String>,
 
+    // One global flag rather than one per command. `export` used to declare its own
+    // `--format` of a different type under the same clap id, which made `parsnip export`
+    // panic at parse time in the released 0.1.0.
     /// Output format: table, json, csv (graphml is export only)
-    ///
-    /// One global flag rather than one per command. `export` used to declare its own
-    /// `--format` of a different type under the same clap id, which made `parsnip export`
-    /// panic at parse time in the released 0.1.0.
     #[arg(short, long, value_enum, default_value_t = view::OutputFormat::Table, global = true)]
     pub format: view::OutputFormat,
 
@@ -60,12 +59,11 @@ pub struct Cli {
     #[arg(long, env = "PARSNIP_SERVER", global = true)]
     pub server: Option<String>,
 
+    // Deliberately not `conflicts_with = "server"`: clap counts a value taken from
+    // PARSNIP_SERVER as the flag being present, so with the variable exported (the normal
+    // remote-mode setup) `--local` was rejected outright instead of overriding it.
     /// Ignore any configured server and use the local database for this invocation.
     /// Wins over --server, PARSNIP_SERVER and server_url.
-    ///
-    /// Deliberately not `conflicts_with = "server"`: clap counts a value taken from
-    /// PARSNIP_SERVER as the flag being present, so with the variable exported (the normal
-    /// remote-mode setup) `--local` was rejected outright instead of overriding it.
     #[arg(long, global = true)]
     pub local: bool,
 
