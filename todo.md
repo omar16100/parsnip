@@ -151,7 +151,7 @@ Plan: [docs/27092026_publish_remote_mode_plan.md](docs/27092026_publish_remote_m
 - [ ] Follow-up: transactional or compare-and-swap entity updates (concurrent edits are last-write-wins)
 - [ ] Follow-up: coordinate project deletion with concurrent writers
 - [ ] Follow-up: route MCP SSE responses to the originating session instead of broadcasting
-- [ ] Follow-up: publish 0.2.0 (crates, tag, release, tap formula), then update the README install section
+- [ ] Follow-up: publish 0.2.0 (crates, tag, release, tap formula), then update the README install section (in progress, see Release 0.2.0 below)
 
 ### Security dependency updates (27 Sep 2026)
 Plan: [docs/27092026_security_deps_plan.md](docs/27092026_security_deps_plan.md).
@@ -165,6 +165,24 @@ Plan: [docs/27092026_security_deps_plan.md](docs/27092026_security_deps_plan.md)
 Plan: [docs/27092026_homebrew_claims_plan.md](docs/27092026_homebrew_claims_plan.md).
 - [x] `docs/todo.md` (served as `todo.html`): Homebrew marked planned, not published; install block matches `llms.txt`
 - [x] `docs/spec.md` Appendix K: available channels separated from planned ones (no Homebrew, Docker, Nix; `parsnip` crate is unrelated)
+
+### Release 0.2.0 (27 Sep 2026)
+Plan: [docs/27092026_release_0_2_0_plan.md](docs/27092026_release_0_2_0_plan.md).
+- [x] `release.yml`: verify job (tag = workspace version, CHANGELOG section, `cargo package --workspace`),
+      publish fails on real errors (only "already on crates.io" is skipped, checked against the index),
+      retries while dependencies reach the index, `checksums.sha256` on the release, notes from CHANGELOG
+- [x] `update-homebrew.yml`: called from `release.yml` (a `GITHUB_TOKEN` release never triggered it),
+      `workflow_dispatch` dry run, checksum and archive checks, formula test asserts the version
+- [x] Crate metadata: readme, keywords, categories, homepage, license files in every package
+- [x] `Cargo.lock`: yanked `chacha20 0.10.1` -> 0.10.2
+- [x] `CHANGELOG.md` with 0.2.0 and 0.1.0
+- [x] README, `llms.txt`, `docs/todo.md`, `docs/spec.md`: `cargo install parsnip-cli` gives 0.2.0 with remote mode
+- [ ] Tag v0.2.0, crates.io, release assets, formula verified
+- [ ] Homebrew install documented once the formula is verified
+- [ ] Follow-up (found in release review): `create_relations` advertises `fromProjectId`/`toProjectId`
+      but `server.rs` ignores them; implement or drop them from the schema
+- [ ] Follow-up: `add_observations` and `add_tags` skip the length checks `create_entities` applies
+- [ ] Follow-up: `project use` ignores `--format json`
 
 ## Pending
 

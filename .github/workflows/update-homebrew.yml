@@ -1,62 +1,151 @@
 name: Update Homebrew
 
+# Writes Formula/parsnip.rb in omar16100/homebrew-tap for a released tag, with
+# sha256 sums computed from the release's own archives.
+#
+# - release.yml calls it (workflow_call) once the GitHub release exists. That
+#   is the normal path: a release created with GITHUB_TOKEN does not trigger
+#   `release: published` in other workflows.
+# - `release: published` covers a release published by hand.
+# - workflow_dispatch re-runs it for any tag. With dry_run (the default) it
+#   prints the formula and checks push access to the tap without pushing.
+
 on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag, e.g. v0.2.0
+        required: true
+        type: string
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, e.g. v0.2.0
+        required: true
+        type: string
+      dry_run:
+        description: Print the formula and check push access, do not push
+        required: false
+        type: boolean
+        default: true
   release:
     types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-homebrew-tap
+  cancel-in-progress: false
 
 jobs:
   update-formula:
     runs-on: ubuntu-latest
     steps:
-      - name: Get release info
+      - name: Resolve tag
         id: release
+        env:
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$TAG' is not a vMAJOR.MINOR.PATCH tag"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Download release assets
-        run: |
-          gh release download ${{ github.ref_name }} -R omar16100/parsnip -p "*.tar.gz"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute SHA256 hashes
-        id: sha
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
-          echo "arm64=$(shasum -a 256 parsnip-macos-arm64.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-          echo "amd64=$(shasum -a 256 parsnip-macos-amd64.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-          echo "linux=$(shasum -a 256 parsnip-linux-amd64.tar.gz | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          mkdir assets
+          cd assets
+          for name in parsnip-macos-arm64 parsnip-macos-amd64 parsnip-linux-amd64; do
+            gh release download "$TAG" -R omar16100/parsnip -p "$name.tar.gz"
+          done
+          # v0.1.0 predates checksums.sha256; every later release must have it.
+          if [ "$TAG" = "v0.1.0" ]; then
+            echo "v0.1.0 has no checksums.sha256"
+          else
+            gh release download "$TAG" -R omar16100/parsnip -p checksums.sha256
+          fi
+          ls -l
+
+      - name: Check archives and compute SHA256
+        id: sha
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          cd assets
+          if [ -f checksums.sha256 ]; then
+            sha256sum -c checksums.sha256
+          fi
+          for name in macos-arm64 macos-amd64 linux-amd64; do
+            f="parsnip-$name.tar.gz"
+            # The formula installs one `parsnip` binary from the archive root.
+            if ! tar -tzf "$f" | grep -qx 'parsnip'; then
+              echo "::error::$f has no top-level parsnip binary"
+              exit 1
+            fi
+            sum=$(sha256sum "$f" | cut -d' ' -f1)
+            if ! [[ "$sum" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::bad sha256 for $f: '$sum'"
+              exit 1
+            fi
+            echo "$f $sum"
+            echo "${name//-/_}=$sum" >> "$GITHUB_OUTPUT"
+          done
+          # This runner can execute the Linux binary: make sure it is the
+          # version the formula will claim.
+          mkdir linux && tar -xzf parsnip-linux-amd64.tar.gz -C linux parsnip
+          out=$(./linux/parsnip --version)
+          echo "$out"
+          if [ "$out" != "parsnip $VERSION" ]; then
+            echo "::error::expected 'parsnip $VERSION', got '$out'"
+            exit 1
+          fi
 
       - name: Checkout homebrew-tap
         uses: actions/checkout@v4
         with:
           repository: omar16100/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
 
-      - name: Update formula
+      - name: Write formula
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA_MACOS_ARM64: ${{ steps.sha.outputs.macos_arm64 }}
+          SHA_MACOS_AMD64: ${{ steps.sha.outputs.macos_amd64 }}
+          SHA_LINUX_AMD64: ${{ steps.sha.outputs.linux_amd64 }}
         run: |
-          cat > Formula/parsnip.rb << 'EOF'
+          mkdir -p tap/Formula
+          base="https://github.com/omar16100/parsnip/releases/download/v${VERSION}"
+          cat > tap/Formula/parsnip.rb <<EOF
           class Parsnip < Formula
             desc "Local-first memory graph for AI assistants"
             homepage "https://omar16100.github.io/parsnip/"
-            version "${{ steps.release.outputs.version }}"
             license any_of: ["MIT", "Apache-2.0"]
 
             on_macos do
               on_arm do
-                url "https://github.com/omar16100/parsnip/releases/download/v#{version}/parsnip-macos-arm64.tar.gz"
-                sha256 "${{ steps.sha.outputs.arm64 }}"
+                url "${base}/parsnip-macos-arm64.tar.gz"
+                sha256 "${SHA_MACOS_ARM64}"
               end
               on_intel do
-                url "https://github.com/omar16100/parsnip/releases/download/v#{version}/parsnip-macos-amd64.tar.gz"
-                sha256 "${{ steps.sha.outputs.amd64 }}"
+                url "${base}/parsnip-macos-amd64.tar.gz"
+                sha256 "${SHA_MACOS_AMD64}"
               end
             end
 
             on_linux do
               on_intel do
-                url "https://github.com/omar16100/parsnip/releases/download/v#{version}/parsnip-linux-amd64.tar.gz"
-                sha256 "${{ steps.sha.outputs.linux }}"
+                url "${base}/parsnip-linux-amd64.tar.gz"
+                sha256 "${SHA_LINUX_AMD64}"
               end
             end
 
@@ -65,15 +154,31 @@ jobs:
             end
 
             test do
-              system "#{bin}/parsnip", "--version"
+              assert_equal "parsnip #{version}", shell_output("#{bin}/parsnip --version").strip
             end
           end
           EOF
+          cat tap/Formula/parsnip.rb
+          # Homebrew takes the version from the /releases/download/vX.Y.Z/ URLs.
+          grep -q "releases/download/v${VERSION}/" tap/Formula/parsnip.rb
 
       - name: Commit and push
+        working-directory: tap
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Formula/parsnip.rb
-          git commit -m "Update parsnip to ${{ steps.release.outputs.version }}"
-          git push
+          if git diff --cached --quiet; then
+            echo "Formula/parsnip.rb is already at $VERSION"
+          else
+            git commit -m "parsnip $VERSION"
+          fi
+          if [ "$DRY_RUN" = true ]; then
+            # Authenticates against the tap and checks push access, pushes nothing.
+            git push --dry-run origin HEAD:main
+          else
+            git push origin HEAD:main
+          fi
