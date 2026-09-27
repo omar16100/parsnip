@@ -177,7 +177,12 @@ Plan: [docs/27092026_release_0_2_0_plan.md](docs/27092026_release_0_2_0_plan.md)
 - [x] `Cargo.lock`: yanked `chacha20 0.10.1` -> 0.10.2
 - [x] `CHANGELOG.md` with 0.2.0 and 0.1.0
 - [x] README, `llms.txt`, `docs/todo.md`, `docs/spec.md`: `cargo install parsnip-cli` gives 0.2.0 with remote mode
-- [ ] Tag v0.2.0, crates.io, release assets, formula verified
+      (merged in #10, then reverted because the release did not complete)
+- [x] Tag v0.2.0 pushed (`884ddfe`); release run 36302226017 failed at publish: crates.io answered
+      `403 authentication failed` for `CARGO_REGISTRY_TOKEN`. Nothing published
+- [x] Tap token dry run (run 36302008080): `HOMEBREW_TAP_TOKEN` cannot push to `omar16100/homebrew-tap` (403)
+- [ ] Owner: replace both secrets, then `gh run rerun 36302226017 --failed`
+- [ ] Re-apply the 0.2.0 install docs; verify crates.io, install, release assets, formula
 - [ ] Homebrew install documented once the formula is verified
 - [ ] Follow-up (found in release review): `create_relations` advertises `fromProjectId`/`toProjectId`
       but `server.rs` ignores them; implement or drop them from the schema
