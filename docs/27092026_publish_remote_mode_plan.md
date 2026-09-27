@@ -31,6 +31,7 @@ on a local branch and never pushed. Before publishing it:
 | Phase | Outcome |
 |---|---|
 | Scrub | Backup file gone from all 11 outgoing commits; `.backups/` ignored; plist log paths templated |
+| Scrub 2 | After review, owner-environment specifics in `todo.md` and the 28072026 plan doc (shell profile file names, local backup file names, private database counts) replaced with generic wording in every outgoing commit, by a tree filter limited to this branch's range |
 | CI parity | Clippy lints raised by current stable fixed (`sort_by_key`, deprecated `cargo_bin`, unreaped test child) |
 | Race | MCP tool calls in the daemon and MCP proxies now resolve projects through the same atomic path as storage RPC clients (`StorageBackend::get_or_create_project`, dispatcher lock, `RemoteStorage` override). New `crates/parsnip-mcp/tests/project_race.rs` fails without the fix (1 of 6 and 1 of 8 entities reachable) |
 | Hardening | Token compared without early exit; warning when the daemon runs without a token; logs to stderr so the stdio JSON-RPC stream stays clean; `--local` overrides an exported `PARSNIP_SERVER` instead of being rejected by clap; implementation notes kept out of `--help` |
