@@ -42,22 +42,30 @@ Parsnip is a single-binary graph database designed to store durable facts as **e
 - **MCP integration**: 13 tools for AI assistants via the Model Context Protocol.
 - **Graph traversal**: BFS traversal, Dijkstra shortest path, filters by entity and relation type.
 - **Multiple backends**: ReDB (default) or SQLite; an in-memory backend is used in tests.
-- **Remote mode**: one `parsnip serve` daemon owns the database and other CLI and MCP processes reach it over HTTP (unreleased, [build from source](#installation)).
+- **Remote mode**: one `parsnip serve` daemon owns the database and other CLI and MCP processes reach it over HTTP (0.2.0 and later).
 - **Small and fast by design**: see the [performance targets](#performance-targets). They are design goals from `docs/spec.md`, not measured benchmarks.
 
 ## Installation
 
 The binary is called `parsnip`; the crate is `parsnip-cli`. Note that `cargo install parsnip` installs an unrelated crate with the same name.
 
-### From crates.io (0.1.0)
+### From crates.io
 
 ```bash
 cargo install parsnip-cli
 ```
 
-As of 27 Sep 2026 the latest published version is 0.1.0. It does not include remote mode or the fixes listed in [todo.md](todo.md).
+Installs the latest release (0.2.0, which includes remote mode). Add `--locked` to build with the dependency versions in the release's `Cargo.lock`. Changes per version are in [CHANGELOG.md](https://github.com/omar16100/parsnip/blob/main/CHANGELOG.md).
 
-### Latest from source (includes remote mode)
+### Prebuilt binary
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh
+```
+
+Downloads the latest [GitHub release](https://github.com/omar16100/parsnip/releases) for Linux x86_64 or macOS (x86_64, arm64) into `~/.local/bin` and checks it against the release's `checksums.sha256`.
+
+### From source
 
 ```bash
 cargo install --git https://github.com/omar16100/parsnip parsnip-cli
@@ -71,17 +79,9 @@ cd parsnip
 cargo build --release -p parsnip-cli   # binary at target/release/parsnip
 ```
 
-### Prebuilt binary (0.1.0)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh
-```
-
-Downloads the latest [GitHub release](https://github.com/omar16100/parsnip/releases) for Linux x86_64 or macOS (x86_64, arm64) into `~/.local/bin`.
-
 ### Feature Flags
 
-Default features in source builds: `redb`, `fulltext`, `sse`, `remote`. (0.1.0 on crates.io defaults to `redb`, `fulltext`.)
+Default features: `redb`, `fulltext`, `sse`, `remote`. (0.1.0 defaulted to `redb`, `fulltext`.)
 
 | Feature | What it adds |
 |---------|--------------|
@@ -94,8 +94,7 @@ Default features in source builds: `redb`, `fulltext`, `sse`, `remote`. (0.1.0 o
 
 ```bash
 # SQLite instead of ReDB
-cargo install --git https://github.com/omar16100/parsnip parsnip-cli \
-  --no-default-features --features sqlite,fulltext,sse,remote
+cargo install parsnip-cli --no-default-features --features sqlite,fulltext,sse,remote
 ```
 
 ## Quick Start
@@ -245,7 +244,7 @@ parsnip import data.json --merge
 parsnip serve
 
 # Start MCP server over HTTP/SSE on 127.0.0.1:3000 (needs the `sse` feature,
-# default in source builds)
+# on by default)
 parsnip serve -t sse --port 3000
 
 # Listening on a non-localhost address needs --allow-remote and a token
@@ -254,7 +253,7 @@ parsnip --auth-token "$TOKEN" serve -t sse --host 0.0.0.0 --allow-remote
 
 ## Remote Mode
 
-The default ReDB backend lets exactly one process open the database, so a long-running `parsnip serve` locks every other `parsnip` command out. Remote mode fixes that: one daemon owns the database, and CLI commands and MCP servers reach it over HTTP. It is in the source tree but not in the 0.1.0 release, so [install from source](#latest-from-source-includes-remote-mode) to use it.
+The default ReDB backend lets exactly one process open the database, so a long-running `parsnip serve` locks every other `parsnip` command out. Remote mode fixes that: one daemon owns the database, and CLI commands and MCP servers reach it over HTTP. It is available from 0.2.0 and needs the `sse` and `remote` features, both on by default.
 
 **1. Start the daemon** (the only process that opens the database):
 
@@ -306,7 +305,7 @@ Every CLI command works remotely, and `config` and `completions` never touch the
 - Updates are read-modify-write from the client: if two clients change the same entity at the same moment (for example both adding an observation), the last write wins.
 - Deleting a project while another client is writing to it can leave that client's new entities under the deleted project.
 
-New projects are created atomically on the daemon, so concurrent clients never split one project name across two ids. See [docs/c4model.md](docs/c4model.md) for the design and [deploy/com.omar.parsnip.plist](deploy/com.omar.parsnip.plist) for an example macOS launchd job.
+New projects are created atomically on the daemon, so concurrent clients never split one project name across two ids. See [docs/c4model.md](https://github.com/omar16100/parsnip/blob/main/docs/c4model.md) for the design and [deploy/com.omar.parsnip.plist](https://github.com/omar16100/parsnip/blob/main/deploy/com.omar.parsnip.plist) for an example macOS launchd job.
 
 ## MCP Integration
 
@@ -373,8 +372,7 @@ Embedded key-value store with ACID transactions. Zero external dependencies.
 Relational backend compatible with SQL tools. Stored as `parsnip.sqlite` in the data directory.
 
 ```bash
-cargo install --git https://github.com/omar16100/parsnip parsnip-cli \
-  --no-default-features --features sqlite,fulltext,sse,remote
+cargo install parsnip-cli --no-default-features --features sqlite,fulltext,sse,remote
 ```
 
 ### Memory
@@ -412,7 +410,7 @@ Logs go to stderr.
 
 ## Performance Targets
 
-Design targets from [docs/spec.md](docs/spec.md). They have not been benchmarked in this repository.
+Design targets from [docs/spec.md](https://github.com/omar16100/parsnip/blob/main/docs/spec.md). They have not been benchmarked in this repository.
 
 | Operation | Target |
 |-----------|--------|
@@ -489,7 +487,7 @@ cargo test
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.
+Dual-licensed under [MIT](https://github.com/omar16100/parsnip/blob/main/LICENSE-MIT) or [Apache-2.0](https://github.com/omar16100/parsnip/blob/main/LICENSE-APACHE) at your option.
 
 ---
 
