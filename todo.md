@@ -153,6 +153,14 @@ Plan: [docs/27092026_publish_remote_mode_plan.md](docs/27092026_publish_remote_m
 - [ ] Follow-up: route MCP SSE responses to the originating session instead of broadcasting
 - [ ] Follow-up: publish 0.2.0 (crates, tag, release, tap formula), then update the README install section
 
+### Security dependency updates (27 Sep 2026)
+Plan: [docs/27092026_security_deps_plan.md](docs/27092026_security_deps_plan.md).
+- [x] Lockfile: lz4_flex 0.11.6, oneshot 0.1.13, time 0.3.55, bytes 1.12.1, rand 0.8.8 and 0.9.5
+      (Dependabot alerts 2 to 7; supersedes Dependabot PRs #1, #3, #4, #5, #7)
+- [x] MSRV 1.88 (patched `time` needs it); README badge and AGENTS.md updated
+- [x] `lru` alert 1 dismissed as tolerable risk: tantivy 0.22 pins `lru ^0.12` and never calls `IterMut`
+- [ ] Follow-up: upgrade tantivy to 0.26 (brings `lru ^0.16.3`, `lz4_flex ^0.13`; index format and API changes)
+
 ## Pending
 
 (none)
