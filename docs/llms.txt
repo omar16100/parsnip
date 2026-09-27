@@ -6,14 +6,15 @@ Parsnip is a Rust-based knowledge graph that runs entirely on your machine. It s
 
 Key capabilities:
 - Graph-native storage using ReDB (default) or SQLite
-- Five search modes: exact, fuzzy, full-text (Tantivy BM25), hybrid, and vector (cosine similarity)
+- Four search modes: exact, fuzzy, full-text (Tantivy BM25), and hybrid
 - Cross-project search without mixing namespaces
 - Graph traversal with BFS, Dijkstra shortest path, and filtered exploration
-- MCP server with 12 tools for AI assistant integration
+- MCP server with 13 tools for AI assistant integration
+- Remote mode (unreleased, build from source): one `parsnip serve` daemon owns the database; CLI and MCP processes reach it over HTTP
 - CLI for manual knowledge management
 - JSON import/export for backup and migration
 
-Performance targets: <10ms cold start, <5ms search on 10k entities, <15MB binary, <20MB idle memory.
+Performance targets (design goals, not benchmarked): <10ms cold start, <5ms search on 10k entities, <15MB binary, <20MB idle memory.
 
 ## Documentation
 
@@ -22,10 +23,10 @@ Performance targets: <10ms cold start, <5ms search on 10k entities, <15MB binary
 
 ## Installation
 
-Three installation methods:
-- Shell: `curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh`
-- Cargo: `cargo install parsnip-cli`
-- Homebrew: `brew install omar16100/tap/parsnip`
+The binary is `parsnip`; the crate is `parsnip-cli` (the crates.io crate named `parsnip` is unrelated).
+- Cargo (0.1.0 from crates.io): `cargo install parsnip-cli`
+- Shell (0.1.0 release binary, Linux x86_64 and macOS): `curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh`
+- Latest source, including remote mode: `cargo install --git https://github.com/omar16100/parsnip parsnip-cli`
 
 ## MCP Integration
 
@@ -55,6 +56,7 @@ Available MCP tools:
 - `add_tags` - Add categorical tags for filtering
 - `remove_tags` - Remove tags from entities
 - `traverse_graph` - BFS/Dijkstra graph traversal with filters
+- `list_projects` - List projects with entity and relation counts
 
 ## CLI Commands
 
@@ -91,6 +93,11 @@ Server:
 - `parsnip serve` - Start MCP server on stdio
 - `parsnip serve -t sse --port 3000` - Start HTTP/SSE server
 
+Remote mode (source builds):
+- `parsnip --local serve -t sse --port 8787` with `PARSNIP_AUTH_TOKEN` set - Start the daemon
+- `parsnip --server http://127.0.0.1:8787 entity list` or `export PARSNIP_SERVER=...` - Use it from the CLI
+- `parsnip serve` with `PARSNIP_SERVER` set - MCP stdio proxy that never opens the database
+
 ## Data Model
 
 Entities have: name (unique per project), type (person/technology/project/company/concept/event/preference), observations (array of facts), tags (array of labels), and project_id.
@@ -101,14 +108,14 @@ Projects are namespaces that isolate entities and relations. Cross-project searc
 
 ## Storage
 
-Default storage: ReDB - embedded key-value store with ACID transactions at `~/.local/share/parsnip/parsnip.redb`
+Default storage: ReDB - embedded key-value store with ACID transactions at `~/.local/share/parsnip/parsnip.redb` (Linux) or `~/Library/Application Support/parsnip/parsnip.redb` (macOS)
 
-Alternative: SQLite with `--features sqlite` flag at `~/.local/share/parsnip/parsnip.sqlite`
+Alternative: SQLite (build with `--no-default-features --features sqlite,fulltext`) at `parsnip.sqlite` in the same directory
 
-Full-text search index stored at `~/.local/share/parsnip/index/`
+Full-text search: 0.1.0 keeps a Tantivy index under `index/` in the data directory; current source builds it in memory per query
 
 ## Optional
 
 - [Website](https://omar16100.github.io/parsnip/): Landing page with interactive examples
-- [Releases](https://github.com/omar16100/parsnip/releases): Pre-built binaries for Linux/macOS/Windows
+- [Releases](https://github.com/omar16100/parsnip/releases): Pre-built binaries for Linux x86_64 and macOS (x86_64, arm64)
 - [crates.io](https://crates.io/crates/parsnip-cli): Rust package registry

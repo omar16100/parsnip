@@ -2,7 +2,7 @@
 
 **A local-first memory graph for AI assistants and knowledge workers.**
 
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](#license)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 
 [Website](https://omar16100.github.io/parsnip/) · [Documentation](#cli-reference) · [Issues](https://github.com/omar16100/parsnip/issues)
@@ -15,7 +15,7 @@ Parsnip is a single-binary graph database designed to store durable facts as **e
 
 **The problem:** Memory is scattered across chat logs, notes, and one-off files. AI assistants forget everything between sessions.
 
-**The solution:** A unified, local-first knowledge graph that captures facts once and retrieves them instantly—even with typos, across projects, and offline.
+**The solution:** A unified, local-first knowledge graph that captures facts once and retrieves them quickly, even with typos, across projects, and offline.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -35,52 +35,74 @@ Parsnip is a single-binary graph database designed to store durable facts as **e
 
 ## Features
 
-- **Local-First** — Completely offline. Your data never leaves your machine. Private by design, portable by nature.
-- **Graph-Native** — Store knowledge as entities, relations, and observations. True graph semantics, not SQL with JSON blobs.
-- **5 Search Modes** — Exact, fuzzy (typo-tolerant), full-text (BM25), hybrid (combined), and vector (semantic).
-- **Cross-Project Search** — Query across all projects without mixing namespaces.
-- **MCP Integration** — 12 tools for AI assistants via Model Context Protocol. Works with Claude Desktop.
-- **Graph Traversal** — BFS, Dijkstra shortest path, filtered traversal by entity/relation types.
-- **Multiple Backends** — ReDB (default), SQLite, or in-memory storage.
-- **Fast** — <10ms cold start, <5ms search on 10k entities, <15MB binary.
+- **Local-first**: works offline, and by default your data stays on your machine. [Remote mode](#remote-mode) is opt-in.
+- **Graph-native**: store knowledge as entities, relations, and observations.
+- **4 search modes**: exact, fuzzy (typo-tolerant), full-text (BM25), and hybrid (fuzzy + full-text).
+- **Cross-project search**: query across all projects without mixing namespaces.
+- **MCP integration**: 13 tools for AI assistants via the Model Context Protocol.
+- **Graph traversal**: BFS traversal, Dijkstra shortest path, filters by entity and relation type.
+- **Multiple backends**: ReDB (default) or SQLite; an in-memory backend is used in tests.
+- **Remote mode**: one `parsnip serve` daemon owns the database and other CLI and MCP processes reach it over HTTP (unreleased, [build from source](#installation)).
+- **Small and fast by design**: see the [performance targets](#performance-targets). They are design goals from `docs/spec.md`, not measured benchmarks.
 
 ## Installation
 
-### From Cargo (Recommended)
+The binary is called `parsnip`; the crate is `parsnip-cli`. Note that `cargo install parsnip` installs an unrelated crate with the same name.
+
+### From crates.io (0.1.0)
 
 ```bash
-cargo install parsnip
+cargo install parsnip-cli
 ```
 
-### From Source
+As of 27 Sep 2026 the latest published version is 0.1.0. It does not include remote mode or the fixes listed in [todo.md](todo.md).
+
+### Latest from source (includes remote mode)
+
+```bash
+cargo install --git https://github.com/omar16100/parsnip parsnip-cli
+```
+
+Or from a clone:
 
 ```bash
 git clone https://github.com/omar16100/parsnip.git
 cd parsnip
-cargo build --release
+cargo build --release -p parsnip-cli   # binary at target/release/parsnip
 ```
+
+### Prebuilt binary (0.1.0)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh
+```
+
+Downloads the latest [GitHub release](https://github.com/omar16100/parsnip/releases) for Linux x86_64 or macOS (x86_64, arm64) into `~/.local/bin`.
 
 ### Feature Flags
 
+Default features in source builds: `redb`, `fulltext`, `sse`, `remote`. (0.1.0 on crates.io defaults to `redb`, `fulltext`.)
+
+| Feature | What it adds |
+|---------|--------------|
+| `redb` | ReDB storage (default backend) |
+| `sqlite` | SQLite storage. Only used when `redb` is off, so disable default features |
+| `fulltext` | Tantivy full-text and hybrid search |
+| `sse` | HTTP/SSE transport for `parsnip serve` |
+| `remote` | HTTP client for [remote mode](#remote-mode) |
+| `remote-tls` | `https://` daemon URLs (rustls) |
+
 ```bash
-# Default (ReDB storage)
-cargo install parsnip
-
-# With SQLite backend
-cargo install parsnip --features sqlite
-
-# With SSE/HTTP transport for MCP
-cargo install parsnip --features sse
-
-# With vector/semantic search
-cargo install parsnip --features vector
+# SQLite instead of ReDB
+cargo install --git https://github.com/omar16100/parsnip parsnip-cli \
+  --no-default-features --features sqlite,fulltext,sse,remote
 ```
 
 ## Quick Start
 
 ```bash
 # Create a project
-parsnip project create work -d "Work knowledge"
+parsnip project create work --description "Work knowledge"
 
 # Add entities
 parsnip -p work entity add John_Smith -t person -o "Senior engineer at Acme" --tag engineer
@@ -95,7 +117,7 @@ parsnip -p work search "engineer" --mode fuzzy
 parsnip -p work search "distributed systems" --mode fulltext
 
 # Traverse the graph
-parsnip -p work relation traverse John_Smith -d 2
+parsnip -p work relation traverse John_Smith --depth 2
 
 # Export for backup
 parsnip -p work export -o backup.json
@@ -109,9 +131,12 @@ parsnip -p work export -o backup.json
 |--------|-------------|
 | `-p, --project <NAME>` | Project namespace (default: "default") |
 | `-d, --data-dir <PATH>` | Custom data directory |
-| `-f, --format <FMT>` | Output format: table, json, csv |
+| `-f, --format <FMT>` | Output format: table, json, csv (graphml is export only) |
 | `-v, --verbose` | Increase verbosity (-v, -vv, -vvv) |
 | `-q, --quiet` | Suppress non-error output |
+| `--server <URL>` | Use a parsnip daemon instead of the local database (env `PARSNIP_SERVER`) |
+| `--local` | Use the local database for this command, overriding any server setting |
+| `--auth-token <TOKEN>` | Bearer token for the daemon (env `PARSNIP_AUTH_TOKEN`) |
 
 ### Entity Commands
 
@@ -126,7 +151,7 @@ parsnip entity list [--type <TYPE>] [--tag <TAG>] [--limit <N>]
 parsnip entity get <NAME>
 
 # Add observation to existing entity
-parsnip entity observe <NAME> -o "new fact"
+parsnip entity observe <NAME> "new fact"
 
 # Delete entity
 parsnip entity delete <NAME> [--force]
@@ -144,12 +169,12 @@ parsnip relation list [--from <NAME>] [--to <NAME>] [--type <TYPE>]
 # Delete relation
 parsnip relation delete <FROM> <TO> -t <TYPE>
 
-# Traverse graph (BFS/DFS)
-parsnip relation traverse <START> [-d <DEPTH>] [--direction outgoing|incoming|both]
+# Traverse graph (BFS, default depth 2)
+parsnip relation traverse <START> [--depth <DEPTH>] [--direction outgoing|incoming|both]
 parsnip relation traverse <START> --entity-types person --relation-types works_at
 
-# Find shortest path
-parsnip relation find-path <FROM> <TO> [--weighted] [--relation-types <TYPES>]
+# Find shortest path (--weighted uses Dijkstra)
+parsnip relation find-path <FROM> <TO> [--weighted] [--relation-types <TYPES>] [--max-depth <N>]
 ```
 
 ### Search Commands
@@ -170,8 +195,8 @@ parsnip search --tag engineer --tag senior
 # Cross-project search
 parsnip search <QUERY> --all-projects
 
-# With pagination
-parsnip search <QUERY> --limit 20 --page 1
+# Limit results (default 100)
+parsnip search <QUERY> --limit 20
 ```
 
 ### Project Commands
@@ -181,9 +206,10 @@ parsnip search <QUERY> --limit 20 --page 1
 parsnip project list
 
 # Create project
-parsnip project create <NAME> [-d "description"]
+parsnip project create <NAME> [--description "description"]
 
-# Set default project
+# Record a default project in the config file
+# (not yet applied to other commands; pass -p <NAME> instead)
 parsnip project use <NAME>
 
 # Get project stats
@@ -218,9 +244,62 @@ parsnip import data.json --merge
 # Start MCP server (stdio)
 parsnip serve
 
-# Start MCP server (HTTP/SSE) - requires --features sse
-parsnip serve -t sse --port 3000 --host 0.0.0.0
+# Start MCP server over HTTP/SSE on 127.0.0.1:3000 (needs the `sse` feature,
+# default in source builds)
+parsnip serve -t sse --port 3000
+
+# Listening on a non-localhost address needs --allow-remote and a token
+parsnip --auth-token "$TOKEN" serve -t sse --host 0.0.0.0 --allow-remote
 ```
+
+## Remote Mode
+
+The default ReDB backend lets exactly one process open the database, so a long-running `parsnip serve` locks every other `parsnip` command out. Remote mode fixes that: one daemon owns the database, and CLI commands and MCP servers reach it over HTTP. It is in the source tree but not in the 0.1.0 release, so [install from source](#latest-from-source-includes-remote-mode) to use it.
+
+**1. Start the daemon** (the only process that opens the database):
+
+```bash
+openssl rand -hex 32 > ~/.parsnip/daemon-token && chmod 600 ~/.parsnip/daemon-token
+export PARSNIP_AUTH_TOKEN="$(cat ~/.parsnip/daemon-token)"
+parsnip --local serve --transport sse --host 127.0.0.1 --port 8787
+```
+
+`--local` keeps the daemon on the local database even if `PARSNIP_SERVER` is set in its environment. Otherwise it would try to proxy to itself.
+
+**2. Point clients at it**, in order of precedence:
+
+```bash
+parsnip --server http://127.0.0.1:8787 entity list   # per command
+export PARSNIP_SERVER=http://127.0.0.1:8787          # per shell
+parsnip config set server_url http://127.0.0.1:8787  # persistent, lowest precedence
+```
+
+Clients send `PARSNIP_AUTH_TOKEN` (or `--auth-token`) as a bearer token. `parsnip --local <command>` bypasses the daemon for one command, which only works while the daemon is stopped.
+
+**3. MCP clients** can run the stdio server as a proxy that never opens the database:
+
+```json
+{
+  "mcpServers": {
+    "parsnip": {
+      "command": "parsnip",
+      "args": ["serve"],
+      "env": {
+        "PARSNIP_SERVER": "http://127.0.0.1:8787",
+        "PARSNIP_AUTH_TOKEN": "<token>"
+      }
+    }
+  }
+}
+```
+
+Security notes:
+
+- `serve` binds `127.0.0.1` by default. Without a token, any local process that can reach the port can read and write the whole graph, so set one even on localhost.
+- A non-localhost `--host` requires both `--allow-remote` and a token. Traffic is plain HTTP: only expose the port over an encrypted network (for example a VPN) or behind an HTTPS proxy, using the `remote-tls` feature for `https://` URLs.
+- `GET /health` is unauthenticated and reports the version and capabilities. Everything else needs the token when one is set.
+
+Every CLI command works remotely, and `config` and `completions` never touch the database. Known limits: `relation traverse`, `relation find-path` and `search --include-relations` fetch whole projects to the client, and a large `import` is sent in several requests, so an interrupted import can leave partial data. See [docs/c4model.md](docs/c4model.md) for the design and [deploy/com.omar.parsnip.plist](deploy/com.omar.parsnip.plist) for an example macOS launchd job.
 
 ## MCP Integration
 
@@ -235,7 +314,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "parsnip": {
       "command": "parsnip",
-      "args": ["mcp"]
+      "args": ["serve"]
     }
   }
 }
@@ -257,6 +336,7 @@ Add to your `claude_desktop_config.json`:
 | `add_tags` | Add tags to entities |
 | `remove_tags` | Remove tags from entities |
 | `traverse_graph` | BFS/Dijkstra traversal with filters |
+| `list_projects` | List projects with entity and relation counts |
 
 ## Search Modes
 
@@ -266,13 +346,12 @@ Add to your `claude_desktop_config.json`:
 | **Fuzzy** | Nucleo-based, typo-tolerant | Misspellings, partial recall |
 | **Full-text** | Tantivy BM25 ranking | Natural language queries |
 | **Hybrid** | Fuzzy + full-text combined | Best overall recall |
-| **Vector** | Cosine similarity (embeddings) | Semantic search |
 
 ### Fuzzy Search Configuration
 
 ```bash
-# Adjust threshold (0.0 = match everything, 1.0 = exact only)
-parsnip search "john smth" --mode fuzzy --threshold 0.3
+# Adjust threshold (0.0 = match everything, 1.0 = exact only; default 0.3)
+parsnip search "john smth" --fuzzy --threshold 0.5
 ```
 
 ## Storage Backends
@@ -289,10 +368,11 @@ Embedded key-value store with ACID transactions. Zero external dependencies.
 
 ### SQLite
 
-Relational backend compatible with SQL tools.
+Relational backend compatible with SQL tools. Stored as `parsnip.sqlite` in the data directory.
 
 ```bash
-cargo install parsnip --features sqlite
+cargo install --git https://github.com/omar16100/parsnip parsnip-cli \
+  --no-default-features --features sqlite,fulltext,sse,remote
 ```
 
 ### Memory
@@ -309,9 +389,16 @@ In-memory storage for testing. No persistence.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PARSNIP_DATA_DIR` | Data directory path | Platform-specific |
-| `PARSNIP_PROJECT` | Default project name | "default" |
-| `PARSNIP_LOG` | Log level (trace/debug/info/warn/error) | "info" |
+| `PARSNIP_SERVER` | Daemon URL for [remote mode](#remote-mode) (same as `--server`) | unset (local database) |
+| `PARSNIP_AUTH_TOKEN` | Bearer token for the daemon (same as `--auth-token`) | unset |
+| `RUST_LOG` | Log filter, overrides `-v`/`-q` (e.g. `debug`, `parsnip=trace`) | `warn` |
+| `XDG_CONFIG_HOME` | If set, the config file is `$XDG_CONFIG_HOME/parsnip/config.toml` | unset |
+
+Logs go to stderr.
+
+### Config File
+
+`~/.parsnip/config.toml` (see `parsnip config path`). Manage it with `parsnip config list|get|set|init`. Keys: `default_project`, `data_dir`, `log_level`, `output_format`, `server_url`. Only `server_url` is currently applied to commands; the others are stored but not yet read.
 
 ### Data Directory Locations
 
@@ -321,7 +408,9 @@ In-memory storage for testing. No persistence.
 | Linux | `~/.local/share/parsnip/` |
 | Windows | `%APPDATA%\parsnip\` |
 
-## Performance
+## Performance Targets
+
+Design targets from [docs/spec.md](docs/spec.md). They have not been benchmarked in this repository.
 
 | Operation | Target |
 |-----------|--------|
@@ -342,15 +431,19 @@ In-memory storage for testing. No persistence.
 parsnip/
 ├── crates/
 │   ├── parsnip-core/       # Core types: Entity, Relation, Observation, Project
-│   ├── parsnip-storage/    # Storage backends: ReDB, SQLite, Memory
-│   ├── parsnip-search/     # Search engines: Exact, Fuzzy, FullText, Hybrid, Vector
+│   ├── parsnip-storage/    # Storage backends: ReDB, SQLite, Memory, Remote (storage RPC)
+│   ├── parsnip-search/     # Search engines: Exact, Fuzzy, FullText, Hybrid
 │   ├── parsnip-cli/        # CLI binary with all commands
-│   └── parsnip-mcp/        # MCP server with 12 tools
-├── docs/
-│   ├── spec.md             # Full specification
-│   └── index.html          # Website
-└── tests/                  # Integration tests
+│   └── parsnip-mcp/        # MCP server (13 tools) and the HTTP/SSE daemon
+├── deploy/                 # Example launchd job for the daemon
+└── docs/
+    ├── index.md            # Documentation index
+    ├── c4model.md          # Architecture (source of truth)
+    ├── spec.md             # Original specification
+    └── index.html          # Website
 ```
+
+Integration tests live in `crates/<crate>/tests/`.
 
 ### Crate Dependencies
 
@@ -374,7 +467,7 @@ Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests (`cargo test`)
+4. Run tests (`cargo test --workspace`)
 5. Submit a pull request
 
 ### Development Setup
@@ -389,8 +482,8 @@ cargo test
 ### Code Style
 
 - Format with `cargo fmt`
-- Lint with `cargo clippy`
-- Test coverage target: >80%
+- Lint with `cargo clippy --workspace --all-targets -- -D warnings`
+- Test coverage target (from the spec): >80%
 
 ## License
 

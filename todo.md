@@ -17,7 +17,7 @@
 ## In Progress
 
 ### Remote client mode (branch `feat/remote-client-mode`)
-Plan: `docs/28072026_parsnip_remote_mode_plan.md`. Fixes the redb exclusive-lock problem
+Plan: [docs/28072026_remote_mode_plan.md](docs/28072026_remote_mode_plan.md). Fixes the redb exclusive-lock problem
 (`Database already open`) by letting one daemon own the DB and everything else reach it over HTTP.
 
 P0 preflight:
@@ -130,6 +130,21 @@ Also hardened the daemon: the plist now clears PARSNIP_SERVER and passes --local
 launchctl carried the caller's environment in and the daemon tried to proxy to itself.
 
 All phases complete. Not done: publishing (no tag, no crates.io, no tap update).
+
+### Publish remote mode to main (27 Sep 2026)
+Plan: [docs/27092026_publish_remote_mode_plan.md](docs/27092026_publish_remote_mode_plan.md).
+- [x] Rebuilt the branch as `feat/remote-client-mode-v2` without an accidentally committed
+      local backup; `.backups/` ignored; deploy plist log paths use a `YOUR_USERNAME` placeholder
+- [x] Clippy clean on current stable (`sort_by_key`, `CARGO_BIN_EXE_parsnip`, reaped test daemon)
+- [x] MCP tool calls and MCP proxies resolve projects through the atomic path
+      (`StorageBackend::get_or_create_project`); `tests/project_race.rs` proves it
+- [x] Constant-time token check, no-token warning, logs to stderr, `--local` beats `PARSNIP_SERVER`
+- [x] README, site and llms.txt: correct crate name, no Homebrew or `parsnip.sh` commands,
+      no vector mode, targets labelled as targets, Remote mode section
+- [x] LICENSE-MIT year 2025, full Apache-2.0 text in LICENSE-APACHE
+- [ ] Follow-up: route `project create` and `import` through `get_or_create_project`
+- [ ] Follow-up: Host header check for a tokenless localhost daemon (DNS rebinding)
+- [ ] Follow-up: publish 0.2.0 (crates, tag, release, tap formula), then update the README install section
 
 ## Pending
 

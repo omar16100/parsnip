@@ -1,7 +1,7 @@
 # Remote client mode
 
 Status: **deployed**, all phases complete. Nothing published.
-Branch: `feat/remote-client-mode`.
+Branch: `feat/remote-client-mode`, published as `feat/remote-client-mode-v2` (see [27092026_publish_remote_mode_plan.md](27092026_publish_remote_mode_plan.md)).
 
 ## Context
 
