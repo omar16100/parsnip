@@ -57,6 +57,14 @@ cargo install parsnip-cli
 
 Installs the latest release (0.2.0, which includes remote mode). Add `--locked` to build with the dependency versions in the release's `Cargo.lock`. Changes per version are in [CHANGELOG.md](https://github.com/omar16100/parsnip/blob/main/CHANGELOG.md).
 
+### Homebrew (macOS, Linux x86_64)
+
+```bash
+brew install omar16100/tap/parsnip
+```
+
+Installs the release binary from the [omar16100/homebrew-tap](https://github.com/omar16100/homebrew-tap) formula.
+
 ### Prebuilt binary
 
 ```bash

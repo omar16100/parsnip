@@ -26,6 +26,7 @@ Performance targets (design goals, not benchmarked): <10ms cold start, <5ms sear
 The binary is `parsnip`; the crate is `parsnip-cli` (the crates.io crate named `parsnip` is unrelated).
 - Cargo (latest release from crates.io, 0.2.0): `cargo install parsnip-cli`
 - Shell (latest release binary, Linux x86_64 and macOS, checked against `checksums.sha256`): `curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh`
+- Homebrew (macOS, Linux x86_64): `brew install omar16100/tap/parsnip`
 - Source: `cargo install --git https://github.com/omar16100/parsnip parsnip-cli`
 - Changes per version: [CHANGELOG.md](https://github.com/omar16100/parsnip/blob/main/CHANGELOG.md)
 

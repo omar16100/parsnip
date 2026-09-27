@@ -1033,6 +1033,7 @@
         <div class="install-tabs" role="tablist" aria-label="Installation methods">
           <button class="install-tab active" role="tab" aria-selected="true" aria-controls="install-shell" id="tab-shell" tabindex="0">Shell</button>
           <button class="install-tab" role="tab" aria-selected="false" aria-controls="install-cargo" id="tab-cargo" tabindex="-1">Cargo</button>
+          <button class="install-tab" role="tab" aria-selected="false" aria-controls="install-brew" id="tab-brew" tabindex="-1">Homebrew</button>
         </div>
         <div id="install-shell" class="install-content active" role="tabpanel" aria-labelledby="tab-shell">
           <div class="install-box" role="button" tabindex="0" aria-label="Copy shell install command">
@@ -1044,6 +1045,12 @@
           <div class="install-box" role="button" tabindex="0" aria-label="Copy cargo install command">
             <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
             <code>cargo install parsnip-cli</code>
+          </div>
+        </div>
+        <div id="install-brew" class="install-content" role="tabpanel" aria-labelledby="tab-brew" hidden>
+          <div class="install-box" role="button" tabindex="0" aria-label="Copy Homebrew install command">
+            <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            <code>brew install omar16100/tap/parsnip</code>
           </div>
         </div>
       </div>
@@ -1433,7 +1440,8 @@
     // ===== Configuration =====
     const installCommands = {
       shell: 'curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh',
-      cargo: 'cargo install parsnip-cli'
+      cargo: 'cargo install parsnip-cli',
+      brew: 'brew install omar16100/tap/parsnip'
     };
 
     const mcpConfig = `{
@@ -1455,7 +1463,7 @@
     // ===== Tab Navigation =====
     const tabs = document.querySelectorAll('.install-tab');
     const tabPanels = document.querySelectorAll('.install-content');
-    const tabNames = ['shell', 'cargo'];
+    const tabNames = ['shell', 'cargo', 'brew'];
 
     function switchTab(index) {
       tabs.forEach((tab, i) => {

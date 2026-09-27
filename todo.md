@@ -151,7 +151,7 @@ Plan: [docs/27092026_publish_remote_mode_plan.md](docs/27092026_publish_remote_m
 - [ ] Follow-up: transactional or compare-and-swap entity updates (concurrent edits are last-write-wins)
 - [ ] Follow-up: coordinate project deletion with concurrent writers
 - [ ] Follow-up: route MCP SSE responses to the originating session instead of broadcasting
-- [ ] Follow-up: publish 0.2.0 (crates, tag, release, tap formula), then update the README install section (in progress, see Release 0.2.0 below)
+- [x] Follow-up: publish 0.2.0 (crates, tag, release, tap formula), then update the README install section (see Release 0.2.0 below)
 
 ### Security dependency updates (27 Sep 2026)
 Plan: [docs/27092026_security_deps_plan.md](docs/27092026_security_deps_plan.md).
@@ -177,8 +177,9 @@ Plan: [docs/27092026_release_0_2_0_plan.md](docs/27092026_release_0_2_0_plan.md)
 - [x] `Cargo.lock`: yanked `chacha20 0.10.1` -> 0.10.2
 - [x] `CHANGELOG.md` with 0.2.0 and 0.1.0
 - [x] README, `llms.txt`, `docs/todo.md`, `docs/spec.md`: `cargo install parsnip-cli` gives 0.2.0 with remote mode
-- [ ] Tag v0.2.0, crates.io, release assets, formula verified
-- [ ] Homebrew install documented once the formula is verified
+- [x] Tag v0.2.0, crates.io, release assets, formula verified (crates published from the maintainer's machine after CI's crates.io token was rejected; formula added in homebrew-tap#2)
+- [ ] Replace `CARGO_REGISTRY_TOKEN` and `HOMEBREW_TAP_TOKEN` repo secrets so the next release publishes from CI
+- [x] Homebrew install documented (README, site Homebrew tab, llms.txt, docs/spec.md, docs/todo.md)
 - [ ] Follow-up (found in release review): `create_relations` advertises `fromProjectId`/`toProjectId`
       but `server.rs` ignores them; implement or drop them from the schema
 - [ ] Follow-up: `add_observations` and `add_tags` skip the length checks `create_entities` applies
