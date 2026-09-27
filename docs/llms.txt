@@ -6,7 +6,7 @@ Parsnip is a Rust-based knowledge graph that runs entirely on your machine. It s
 
 Key capabilities:
 - Graph-native storage using ReDB (default) or SQLite
-- Four search modes: exact, fuzzy, full-text (Tantivy BM25), and hybrid
+- Search modes: exact, fuzzy, and full-text (Tantivy BM25); `hybrid` is accepted and currently runs full-text
 - Cross-project search without mixing namespaces
 - Graph traversal with BFS, Dijkstra shortest path, and filtered exploration
 - MCP server with 13 tools for AI assistant integration
@@ -71,7 +71,7 @@ Relation management:
 - `parsnip relation add FROM TO -t RELATION_TYPE`
 - `parsnip relation list --from NAME --type works_at`
 - `parsnip relation delete FROM TO -t TYPE`
-- `parsnip relation traverse START -d DEPTH --direction outgoing`
+- `parsnip relation traverse START --depth DEPTH --direction outgoing`
 - `parsnip relation find-path START END --weighted`
 
 Search:
@@ -81,7 +81,7 @@ Search:
 
 Project management:
 - `parsnip project list`
-- `parsnip project create NAME -d "description"`
+- `parsnip project create NAME --description "description"`
 - `parsnip project use NAME`
 - `parsnip project stats`
 

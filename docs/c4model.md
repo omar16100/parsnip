@@ -136,7 +136,8 @@ Both paths render through the same function, so their output is identical.
   with the atomic `storage/get_or_create_project` call, so CLI clients and MCP proxies never
   do get-then-create over the wire. Doing it client-side loses data: entity keys embed the
   project UUID, so the loser of a race leaves rows under an id no name resolves to.
-  `project create` and `import` still do their own get-then-create (see the plan doc).
+  `project create` and `import` resolve through the same method. The dispatcher's
+  `storage/save_project` refuses to bind an existing name to a different id.
 - **Validation.** The dispatcher enforces batch-size limits, which bound per-request memory
   on a shared daemon. It deliberately does not enforce name and observation lengths, because
   the local path does not either, and diverging would make remote mode reject data local
@@ -151,8 +152,19 @@ Both paths render through the same function, so their output is identical.
   connection and never answer; `tailscale serve` in front of the port is the tested way to
   expose it across machines.
 - **Auth.** Optional bearer token (`--auth-token` / `PARSNIP_AUTH_TOKEN`), compared without
-  an early exit. `/health` is unauthenticated. The daemon logs a warning when started
-  without a token. Transport is plain HTTP unless fronted by TLS (`remote-tls` on clients).
+  an early exit, never shown in `--help`, and refused if empty. `/health` is
+  unauthenticated. Without a token the daemon logs a warning and accepts only loopback
+  `Host` headers (DNS-rebinding guard). The bind host is resolved first and must be
+  loopback-only unless `--allow-remote` and a token are given. Transport is plain HTTP
+  unless fronted by TLS (`remote-tls` on clients); clients never follow redirects.
+- **Untrusted query input.** `search/query` deserializes a `SearchQuery` from the network,
+  so engines use `Pagination::limit()`/`offset()` (clamped, saturating) rather than the raw
+  fields; a zero page size used to panic tantivy and, with `panic = "abort"`, kill the daemon.
+  A multi-project scope is applied before searching.
+- **Output formats** are checked before a command runs, so an unsupported `--format` never
+  follows a completed mutation.
+- **SSE broadcast** carries only MCP responses; `storage/*` and `search/query` responses stay
+  point-to-point.
 - **Logs** go to stderr, so stdout carries only command output or the stdio JSON-RPC stream.
 
 ## Change log
@@ -160,4 +172,4 @@ Both paths render through the same function, so their output is identical.
 | Date | Change |
 |---|---|
 | 28 Jul 2026 | Remote client mode: storage RPC (`storage/*`, `search/query`), `RemoteStorage`, runtime storage selection, daemon as sole database owner. |
-| 27 Sep 2026 | MCP tool surface and MCP proxies resolve projects through the same atomic path as the storage RPC; constant-time token check and no-token warning; logs to stderr; `--local` overrides an exported `PARSNIP_SERVER`. |
+| 27 Sep 2026 | MCP tool surface, MCP proxies, `project create` and `import` resolve projects through the same atomic path as the storage RPC; `save_project` cannot rebind a name. Constant-time token check, hidden in help, empty token refused, no-token warning and loopback `Host` guard; bind host resolved and vetted before storage opens; no client redirects. Pagination clamped for network input; multi-project search scope honoured; `search/query` not broadcast. Format checked before mutations. Logs to stderr; `--local` overrides an exported `PARSNIP_SERVER`. MSRV 1.85. |

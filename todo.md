@@ -142,8 +142,13 @@ Plan: [docs/27092026_publish_remote_mode_plan.md](docs/27092026_publish_remote_m
 - [x] README, site and llms.txt: correct crate name, no Homebrew or `parsnip.sh` commands,
       no vector mode, targets labelled as targets, Remote mode section
 - [x] LICENSE-MIT year 2025, full Apache-2.0 text in LICENSE-APACHE
-- [ ] Follow-up: route `project create` and `import` through `get_or_create_project`
-- [ ] Follow-up: Host header check for a tokenless localhost daemon (DNS rebinding)
+- [x] Review round 1 fixes: atomic `project create`/`import`, `save_project` rebind guard,
+      pagination clamp (zero page size aborted the daemon), loopback Host guard, vetted bind
+      host, token hidden in help and refused when empty, no SSE broadcast of search, multi-project
+      scope, no client redirects, `--format` checked before mutations, MSRV 1.85
+- [ ] Follow-up: transactional or compare-and-swap entity updates (concurrent edits are last-write-wins)
+- [ ] Follow-up: coordinate project deletion with concurrent writers
+- [ ] Follow-up: route MCP SSE responses to the originating session instead of broadcasting
 - [ ] Follow-up: publish 0.2.0 (crates, tag, release, tap formula), then update the README install section
 
 ## Pending

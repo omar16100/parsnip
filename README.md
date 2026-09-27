@@ -3,7 +3,7 @@
 **A local-first memory graph for AI assistants and knowledge workers.**
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](#license)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 
 [Website](https://omar16100.github.io/parsnip/) · [Documentation](#cli-reference) · [Issues](https://github.com/omar16100/parsnip/issues)
 
@@ -37,7 +37,7 @@ Parsnip is a single-binary graph database designed to store durable facts as **e
 
 - **Local-first**: works offline, and by default your data stays on your machine. [Remote mode](#remote-mode) is opt-in.
 - **Graph-native**: store knowledge as entities, relations, and observations.
-- **4 search modes**: exact, fuzzy (typo-tolerant), full-text (BM25), and hybrid (fuzzy + full-text).
+- **Search modes**: exact, fuzzy (typo-tolerant) and full-text (BM25). `hybrid` is accepted and currently runs full-text.
 - **Cross-project search**: query across all projects without mixing namespaces.
 - **MCP integration**: 13 tools for AI assistants via the Model Context Protocol.
 - **Graph traversal**: BFS traversal, Dijkstra shortest path, filters by entity and relation type.
@@ -87,7 +87,7 @@ Default features in source builds: `redb`, `fulltext`, `sse`, `remote`. (0.1.0 o
 |---------|--------------|
 | `redb` | ReDB storage (default backend) |
 | `sqlite` | SQLite storage. Only used when `redb` is off, so disable default features |
-| `fulltext` | Tantivy full-text and hybrid search |
+| `fulltext` | Tantivy full-text search (also used by `--mode hybrid`) |
 | `sse` | HTTP/SSE transport for `parsnip serve` |
 | `remote` | HTTP client for [remote mode](#remote-mode) |
 | `remote-tls` | `https://` daemon URLs (rustls) |
@@ -133,7 +133,7 @@ parsnip -p work export -o backup.json
 | `-d, --data-dir <PATH>` | Custom data directory |
 | `-f, --format <FMT>` | Output format: table, json, csv (graphml is export only) |
 | `-v, --verbose` | Increase verbosity (-v, -vv, -vvv) |
-| `-q, --quiet` | Suppress non-error output |
+| `-q, --quiet` | Only log errors (command output is unchanged) |
 | `--server <URL>` | Use a parsnip daemon instead of the local database (env `PARSNIP_SERVER`) |
 | `--local` | Use the local database for this command, overriding any server setting |
 | `--auth-token <TOKEN>` | Bearer token for the daemon (env `PARSNIP_AUTH_TOKEN`) |
@@ -187,7 +187,7 @@ parsnip search <QUERY>
 parsnip search <QUERY> --mode exact      # Substring match
 parsnip search <QUERY> --mode fuzzy      # Typo-tolerant
 parsnip search <QUERY> --mode fulltext   # BM25 ranking
-parsnip search <QUERY> --mode hybrid     # Fuzzy + fulltext
+parsnip search <QUERY> --mode hybrid     # Currently the same as fulltext
 
 # Filter by tags
 parsnip search --tag engineer --tag senior
@@ -228,10 +228,10 @@ parsnip export -o backup.json
 # Export all projects
 parsnip export --all-projects -o full-backup.json
 
-# Import to current project
+# Import (projects keep the names recorded in the file)
 parsnip import data.json
 
-# Import to specific project
+# Import everything into one project
 parsnip import data.json --target-project newproject
 
 # Merge with existing data
@@ -259,7 +259,7 @@ The default ReDB backend lets exactly one process open the database, so a long-r
 **1. Start the daemon** (the only process that opens the database):
 
 ```bash
-openssl rand -hex 32 > ~/.parsnip/daemon-token && chmod 600 ~/.parsnip/daemon-token
+mkdir -p ~/.parsnip && (umask 077 && openssl rand -hex 32 > ~/.parsnip/daemon-token)
 export PARSNIP_AUTH_TOKEN="$(cat ~/.parsnip/daemon-token)"
 parsnip --local serve --transport sse --host 127.0.0.1 --port 8787
 ```
@@ -295,11 +295,18 @@ Clients send `PARSNIP_AUTH_TOKEN` (or `--auth-token`) as a bearer token. `parsni
 
 Security notes:
 
-- `serve` binds `127.0.0.1` by default. Without a token, any local process that can reach the port can read and write the whole graph, so set one even on localhost.
-- A non-localhost `--host` requires both `--allow-remote` and a token. Traffic is plain HTTP: only expose the port over an encrypted network (for example a VPN) or behind an HTTPS proxy, using the `remote-tls` feature for `https://` URLs.
+- `serve` binds `127.0.0.1` by default. Without a token, any local process that can reach the port can read and write the whole graph, so set one even on localhost. A tokenless daemon also rejects requests whose `Host` header is not a loopback name, which blocks DNS-rebinding attacks from web pages.
+- A `--host` that does not resolve only to loopback addresses requires both `--allow-remote` and a token, and an empty token is refused. Traffic is plain HTTP: only expose the port over an encrypted network (for example a VPN) or behind an HTTPS proxy, using the `remote-tls` feature for `https://` URLs. Clients do not follow redirects.
 - `GET /health` is unauthenticated and reports the version and capabilities. Everything else needs the token when one is set.
 
-Every CLI command works remotely, and `config` and `completions` never touch the database. Known limits: `relation traverse`, `relation find-path` and `search --include-relations` fetch whole projects to the client, and a large `import` is sent in several requests, so an interrupted import can leave partial data. See [docs/c4model.md](docs/c4model.md) for the design and [deploy/com.omar.parsnip.plist](deploy/com.omar.parsnip.plist) for an example macOS launchd job.
+Every CLI command works remotely, and `config` and `completions` never touch the database. Known limits:
+
+- `relation traverse`, `relation find-path` and `search --include-relations` fetch whole projects to the client.
+- A large `import` is sent in several requests, so an interrupted import can leave partial data.
+- Updates are read-modify-write from the client: if two clients change the same entity at the same moment (for example both adding an observation), the last write wins.
+- Deleting a project while another client is writing to it can leave that client's new entities under the deleted project.
+
+New projects are created atomically on the daemon, so concurrent clients never split one project name across two ids. See [docs/c4model.md](docs/c4model.md) for the design and [deploy/com.omar.parsnip.plist](deploy/com.omar.parsnip.plist) for an example macOS launchd job.
 
 ## MCP Integration
 
@@ -324,7 +331,7 @@ Add to your `claude_desktop_config.json`:
 
 | Tool | Description |
 |------|-------------|
-| `search_knowledge` | Search entities with fuzzy/fulltext/hybrid modes |
+| `search_knowledge` | Search entities (exact, fuzzy, or full-text) |
 | `create_entities` | Batch create entities with observations and tags |
 | `add_observations` | Add facts to existing entities |
 | `create_relations` | Create typed relations between entities |
@@ -345,14 +352,9 @@ Add to your `claude_desktop_config.json`:
 | **Exact** | Substring matching | Precise queries, known names |
 | **Fuzzy** | Nucleo-based, typo-tolerant | Misspellings, partial recall |
 | **Full-text** | Tantivy BM25 ranking | Natural language queries |
-| **Hybrid** | Fuzzy + full-text combined | Best overall recall |
+| **Hybrid** | Currently runs the full-text engine | Same as full-text for now |
 
-### Fuzzy Search Configuration
-
-```bash
-# Adjust threshold (0.0 = match everything, 1.0 = exact only; default 0.3)
-parsnip search "john smth" --fuzzy --threshold 0.5
-```
+`search --fuzzy` is shorthand for `--mode fuzzy`. `--threshold` is accepted but not yet applied by the fuzzy engine.
 
 ## Storage Backends
 
@@ -432,7 +434,7 @@ parsnip/
 ├── crates/
 │   ├── parsnip-core/       # Core types: Entity, Relation, Observation, Project
 │   ├── parsnip-storage/    # Storage backends: ReDB, SQLite, Memory, Remote (storage RPC)
-│   ├── parsnip-search/     # Search engines: Exact, Fuzzy, FullText, Hybrid
+│   ├── parsnip-search/     # Search engines: Exact, Fuzzy, FullText
 │   ├── parsnip-cli/        # CLI binary with all commands
 │   └── parsnip-mcp/        # MCP server (13 tools) and the HTTP/SSE daemon
 ├── deploy/                 # Example launchd job for the daemon

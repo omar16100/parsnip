@@ -1079,8 +1079,8 @@
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔀</div>
-          <h3>Hybrid Search</h3>
-          <p>Fuzzy matching for typos + full-text search for relevance. Find what you meant, not just what you typed.</p>
+          <h3>Fuzzy + Full-text</h3>
+          <p>Fuzzy matching for typos, full-text search for relevance. Find what you meant, not just what you typed.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🤖</div>
@@ -1144,7 +1144,7 @@
         </div>
         <div class="search-card">
           <h4>Fuzzy</h4>
-          <p>Nucleo-based typo tolerance with configurable threshold</p>
+          <p>Nucleo-based typo tolerance</p>
         </div>
         <div class="search-card">
           <h4>Full-text</h4>
@@ -1152,7 +1152,7 @@
         </div>
         <div class="search-card">
           <h4>Hybrid</h4>
-          <p>Combined fuzzy + fulltext for best results</p>
+          <p>Accepted; currently runs the full-text engine</p>
         </div>
       </div>
     </div>
@@ -1211,7 +1211,7 @@
             <li><code>--mode exact</code>: substring match</li>
             <li><code>--mode fuzzy</code>: typo-tolerant</li>
             <li><code>--mode fulltext</code>: BM25 ranking</li>
-            <li><code>--mode hybrid</code>: combined</li>
+            <li><code>--mode hybrid</code>: currently full-text</li>
             <li><code>--all-projects</code>: cross-project</li>
           </ul>
         </div>
@@ -1396,13 +1396,13 @@
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-8" id="faq-btn-8">What's the difference between search modes?</button>
           <div class="faq-answer" id="faq-8" role="region" aria-labelledby="faq-btn-8">
-            <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant (nucleo matcher). <strong>Fulltext</strong>: BM25 relevance ranking. <strong>Hybrid</strong>: combines fuzzy + fulltext.</p>
+            <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant (nucleo matcher). <strong>Fulltext</strong>: BM25 relevance ranking. <strong>Hybrid</strong>: accepted, currently runs the full-text engine.</p>
           </div>
         </div>
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-9" id="faq-btn-9">How do I traverse the graph?</button>
           <div class="faq-answer" id="faq-9" role="region" aria-labelledby="faq-btn-9">
-            <p>Use <code>parsnip relation traverse EntityName</code> with options: <code>-d 3</code> for depth, <code>--direction outgoing</code>, or filter with <code>--entity-types person</code> and <code>--relation-types works_at</code>.</p>
+            <p>Use <code>parsnip relation traverse EntityName</code> with options: <code>--depth 3</code> for depth, <code>--direction outgoing</code>, or filter with <code>--entity-types person</code> and <code>--relation-types works_at</code>.</p>
           </div>
         </div>
       </div>
