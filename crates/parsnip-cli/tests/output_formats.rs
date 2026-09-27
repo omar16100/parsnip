@@ -7,11 +7,10 @@
 
 use std::process::Command;
 
-use assert_cmd::cargo::cargo_bin;
 use tempfile::TempDir;
 
 fn parsnip(dir: &std::path::Path) -> Command {
-    let mut cmd = Command::new(cargo_bin("parsnip"));
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_parsnip"));
     cmd.arg("--data-dir").arg(dir).arg("--local");
     cmd.env_remove("PARSNIP_SERVER")
         .env_remove("PARSNIP_AUTH_TOKEN");

@@ -7,7 +7,6 @@ use std::net::TcpListener;
 use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
-use assert_cmd::cargo::cargo_bin;
 use tempfile::TempDir;
 
 /// A `parsnip serve` child that is killed when the test ends, however it ends.
@@ -24,7 +23,7 @@ impl Drop for Daemon {
 }
 
 fn parsnip() -> Command {
-    Command::new(cargo_bin("parsnip"))
+    Command::new(env!("CARGO_BIN_EXE_parsnip"))
 }
 
 /// Reserve a port by binding and immediately releasing it.
@@ -58,22 +57,26 @@ fn start_daemon(data_dir: &std::path::Path, token: Option<&str>) -> Daemon {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
 
-    let child = cmd.spawn().expect("spawn parsnip serve");
-    let url = format!("http://127.0.0.1:{port}");
+    // Wrapped in `Daemon` straight away so its Drop kills and reaps the child on every
+    // path, including the panic below when the daemon never becomes healthy.
+    let daemon = Daemon {
+        child: cmd.spawn().expect("spawn parsnip serve"),
+        url: format!("http://127.0.0.1:{port}"),
+    };
 
     // Poll /health until the daemon answers.
     let deadline = Instant::now() + Duration::from_secs(20);
-    let health = format!("{url}/health");
+    let health = format!("{}/health", daemon.url);
     while Instant::now() < deadline {
         let probe = Command::new("curl")
             .args(["-sf", "-m", "1", &health])
             .output();
         if matches!(probe, Ok(o) if o.status.success()) {
-            return Daemon { child, url };
+            return daemon;
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    panic!("daemon at {url} never became healthy");
+    panic!("daemon at {} never became healthy", daemon.url);
 }
 
 /// Run the CLI against a daemon.
