@@ -195,13 +195,13 @@
 ## Installation
 
 ```bash
-# Shell (latest release binary, Linux x86_64 and macOS)
+# Shell (0.1.0 release binary, Linux x86_64 and macOS)
 curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh
 
-# Cargo (latest release from crates.io, 0.2.0 includes remote mode)
+# Cargo (0.1.0 from crates.io)
 cargo install parsnip-cli
 
-# Source
+# Latest source, including remote mode
 cargo install --git https://github.com/omar16100/parsnip parsnip-cli
 ```
 
