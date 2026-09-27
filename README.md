@@ -71,7 +71,7 @@ Installs the release binary from the [omar16100/homebrew-tap](https://github.com
 curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh
 ```
 
-Downloads the latest [GitHub release](https://github.com/omar16100/parsnip/releases) for Linux x86_64 or macOS (x86_64, arm64) into `~/.local/bin` and checks it against the release's `checksums.sha256`.
+Downloads the latest [GitHub release](https://github.com/omar16100/parsnip/releases) for Linux x86_64 or macOS (x86_64, arm64) into `~/.local/bin` and, when `sha256sum` or `shasum` is available and the release has a `checksums.sha256`, checks it against that file (otherwise it warns and skips the check).
 
 ### From source
 

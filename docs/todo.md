@@ -112,7 +112,7 @@
 - Batch writes in storage/import: single transaction for bulk entity/relation saves
 - Fixed N+1 relation reads in CLI search: pre-fetch relations once per project, index by entity name
 - tokio current_thread runtime for CLI: faster cold start (no multi-thread overhead)
-- install.sh SHA256 checksum verification: verifies downloaded binary against checksums.sha256
+- install.sh SHA256 checksum verification: verifies the downloaded binary against checksums.sha256 when sha256sum/shasum and the file are available; otherwise warns and skips
 - projectId field descriptions clarified: now documented as "Project name for data isolation"
 
 ### CLI Features (v0.5.x)
