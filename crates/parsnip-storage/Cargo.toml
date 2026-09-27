@@ -6,6 +6,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["knowledge-graph", "storage", "redb", "sqlite", "json-rpc"]
+categories = ["database-implementations", "database"]
 
 [features]
 default = ["redb"]

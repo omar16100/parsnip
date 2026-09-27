@@ -14,7 +14,8 @@ edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/omar16100/parsnip"
-homepage = "https://github.com/omar16100/parsnip"
+homepage = "https://omar16100.github.io/parsnip/"
+readme = "README.md"
 authors = ["Parsnip Contributors"]
 
 [workspace.dependencies]

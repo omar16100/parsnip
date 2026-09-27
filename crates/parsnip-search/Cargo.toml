@@ -6,6 +6,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["knowledge-graph", "search", "fuzzy", "full-text", "tantivy"]
+categories = ["text-processing", "database"]
 
 [dependencies]
 parsnip-core = { workspace = true }
