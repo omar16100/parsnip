@@ -38,6 +38,12 @@ pub enum StorageError {
     #[error("Transaction error: {0}")]
     Transaction(String),
 
+    /// A remote daemon reported an error, or the call to it failed. Carries the
+    /// server's message; the structured kind is mapped back to the variants above
+    /// where one exists.
+    #[error("Remote error: {0}")]
+    Remote(String),
+
     #[cfg(feature = "redb")]
     #[error("ReDB error: {0}")]
     Redb(#[from] ::redb::Error),

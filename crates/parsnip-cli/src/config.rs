@@ -43,6 +43,11 @@ pub struct Config {
     /// Default output format (table, json, csv)
     #[serde(default = "default_output_format")]
     pub output_format: String,
+
+    /// Base URL of a parsnip daemon to use instead of the local database.
+    /// Lowest precedence: --server and PARSNIP_SERVER both win over this.
+    #[serde(default)]
+    pub server_url: Option<String>,
 }
 
 fn default_project() -> String {
@@ -64,6 +69,7 @@ impl Default for Config {
             data_dir: None,
             log_level: default_log_level(),
             output_format: default_output_format(),
+            server_url: None,
         }
     }
 }
@@ -114,6 +120,7 @@ impl Config {
             "data_dir" => self.data_dir.as_ref().map(|p| p.display().to_string()),
             "log_level" => Some(self.log_level.clone()),
             "output_format" => Some(self.output_format.clone()),
+            "server_url" => self.server_url.clone(),
             _ => None,
         }
     }
@@ -135,6 +142,15 @@ impl Config {
                 }
                 self.output_format = value.to_string();
             }
+            "server_url" => {
+                if value.is_empty() {
+                    self.server_url = None;
+                } else if !value.starts_with("http://") && !value.starts_with("https://") {
+                    anyhow::bail!("server_url must start with http:// or https://: {}", value);
+                } else {
+                    self.server_url = Some(value.to_string());
+                }
+            }
             _ => anyhow::bail!("Unknown config key: {}", key),
         }
         Ok(())
@@ -142,7 +158,13 @@ impl Config {
 
     /// List all config keys
     pub fn keys() -> Vec<&'static str> {
-        vec!["default_project", "data_dir", "log_level", "output_format"]
+        vec![
+            "default_project",
+            "data_dir",
+            "log_level",
+            "output_format",
+            "server_url",
+        ]
     }
 
     /// Get the effective data directory

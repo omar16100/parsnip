@@ -3,8 +3,18 @@
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
+/// The only JSON-RPC version this server speaks.
+pub const JSONRPC_VERSION: &str = "2.0";
+
+fn jsonrpc_version() -> String {
+    JSONRPC_VERSION.to_string()
+}
+
 /// JSON-RPC request
-#[derive(Debug, Deserialize)]
+///
+/// `Serialize` as well as `Deserialize` so remote clients can build requests with the same
+/// type the server parses them with.
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
     pub jsonrpc: String,
     pub id: serde_json::Value,
@@ -13,28 +23,51 @@ pub struct JsonRpcRequest {
     pub params: serde_json::Value,
 }
 
+impl JsonRpcRequest {
+    /// Build a request for a client call.
+    pub fn new(
+        id: serde_json::Value,
+        method: impl Into<String>,
+        params: serde_json::Value,
+    ) -> Self {
+        Self {
+            jsonrpc: jsonrpc_version(),
+            id,
+            method: method.into(),
+            params,
+        }
+    }
+}
+
 /// JSON-RPC response
-#[derive(Debug, Serialize)]
+///
+/// `jsonrpc` is an owned `String` rather than `&'static str` so this can derive `Deserialize`
+/// for client use.
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcResponse {
-    pub jsonrpc: &'static str,
+    #[serde(default = "jsonrpc_version")]
+    pub jsonrpc: String,
     pub id: serde_json::Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<JsonRpcError>,
 }
 
 /// JSON-RPC error
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcError {
     pub code: i32,
     pub message: String,
+    /// Structured payload; carries the storage error kind for remote clients.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
 }
 
 impl JsonRpcResponse {
     pub fn success(id: serde_json::Value, result: serde_json::Value) -> Self {
         Self {
-            jsonrpc: "2.0",
+            jsonrpc: jsonrpc_version(),
             id,
             result: Some(result),
             error: None,
@@ -43,12 +76,32 @@ impl JsonRpcResponse {
 
     pub fn error(id: serde_json::Value, code: i32, message: impl Into<String>) -> Self {
         Self {
-            jsonrpc: "2.0",
+            jsonrpc: jsonrpc_version(),
             id,
             result: None,
             error: Some(JsonRpcError {
                 code,
                 message: message.into(),
+                data: None,
+            }),
+        }
+    }
+
+    /// Error response carrying a structured `data` payload.
+    pub fn error_with_data(
+        id: serde_json::Value,
+        code: i32,
+        message: impl Into<String>,
+        data: serde_json::Value,
+    ) -> Self {
+        Self {
+            jsonrpc: jsonrpc_version(),
+            id,
+            result: None,
+            error: Some(JsonRpcError {
+                code,
+                message: message.into(),
+                data: Some(data),
             }),
         }
     }

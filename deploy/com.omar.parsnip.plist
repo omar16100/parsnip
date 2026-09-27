@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.omar.parsnip</string>
+
+    <!--
+      Sole owner of the parsnip database. redb allows exactly one process to open it,
+      so everything else (local CLI, MCP servers here and on other tailnet Macs) talks
+      to this daemon over HTTP instead of opening the file.
+
+      Bound to 127.0.0.1, not the Tailscale address. Binding directly to the tailnet
+      address on macOS accepts the TCP connection and then never answers: verified with
+      curl both locally and from another tailnet Mac, while the same binary on 127.0.0.1
+      responds instantly. Inbound tailnet traffic has to be delivered by tailscaled, so
+      the listener must not sit on the utun address itself.
+
+      Cross-machine access still works, because the other Macs reach parsnip by SSHing
+      into this host and running a proxy here, which connects to 127.0.0.1. For direct
+      cross-machine HTTP, put `tailscale serve` in front of this port rather than
+      rebinding.
+
+      The token is kept even on localhost: without it, any local process reaches the
+      whole graph.
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <!--
+          `-u PARSNIP_SERVER` and `--local` both matter: if that variable reaches the
+          daemon it becomes a proxy pointing at itself and dies on startup, which is
+          exactly what happened when launchctl carried the caller's environment in.
+        -->
+        <!--
+          The token is read first and checked: if the file is missing or empty the job
+          exits rather than starting a daemon with an empty token.
+        -->
+        <string>TOKEN="$(cat "$HOME/.parsnip/daemon-token")" &amp;&amp; [ -n "$TOKEN" ] || { echo "parsnip: cannot read $HOME/.parsnip/daemon-token" >&amp;2; exit 1; }; exec env -u PARSNIP_SERVER PARSNIP_AUTH_TOKEN="$TOKEN" "$HOME/.local/bin/parsnip" --local serve --transport sse --host 127.0.0.1 --port 8787</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <!--
+      Tailscale may not have assigned the address yet at login, so the bind fails and
+      launchd retries. Without a throttle it would spin.
+    -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>info</string>
+    </dict>
+
+    <!--
+      launchd does not expand ~ or $HOME in these keys. Replace YOUR_USERNAME before
+      installing, e.g.:
+        sed "s|/Users/YOUR_USERNAME|$HOME|g" deploy/com.omar.parsnip.plist \
+          > ~/Library/LaunchAgents/com.omar.parsnip.plist
+    -->
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/parsnip-daemon.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/parsnip-daemon.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

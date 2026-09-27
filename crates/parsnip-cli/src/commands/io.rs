@@ -6,22 +6,12 @@ use std::path::PathBuf;
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
-use clap::{Args, ValueEnum};
+use clap::Args;
 use serde::{Deserialize, Serialize};
 
+use crate::view::OutputFormat;
 use crate::{AppContext, Cli};
-use parsnip_core::{Entity, Project, Relation};
-use parsnip_storage::StorageBackend;
-
-/// Export format
-#[derive(Clone, Copy, Default, ValueEnum)]
-pub enum ExportFormat {
-    #[default]
-    Json,
-    Csv,
-    #[value(name = "graphml")]
-    GraphML,
-}
+use parsnip_core::{Entity, Relation};
 
 #[derive(Args)]
 pub struct ImportArgs {
@@ -29,7 +19,8 @@ pub struct ImportArgs {
     pub file: PathBuf,
 
     /// Target project (default: use project from file or 'default')
-    #[arg(short = 'p', long)]
+    // No short form: -p is taken by the global --project.
+    #[arg(long)]
     pub target_project: Option<String>,
 
     /// Merge with existing data (default: error if exists)
@@ -50,10 +41,6 @@ pub struct ExportArgs {
     /// Export all projects
     #[arg(long)]
     pub all_projects: bool,
-
-    /// Export format
-    #[arg(short, long, default_value = "json")]
-    pub format: ExportFormat,
 }
 
 /// Export format matching the knowledge graph structure
@@ -116,27 +103,28 @@ pub async fn run_import(args: &ImportArgs, _cli: &Cli, ctx: &AppContext) -> anyh
     for project_data in data.projects {
         let project_name = args.target_project.as_deref().unwrap_or(&project_data.name);
 
-        // Get or create project
-        let project = if let Some(existing) = ctx.storage.get_project(project_name).await? {
-            if !args.merge {
-                let entity_count = ctx.storage.get_all_entities(&existing.id).await?.len();
-                if entity_count > 0 {
-                    anyhow::bail!(
-                        "Project '{}' already has {} entities. Use --merge to add to existing data.",
-                        project_name,
-                        entity_count
-                    );
-                }
+        // Get or create project through the atomic path (see `AppContext::project_id`), so
+        // a concurrent client creating the same name cannot end up with a different id.
+        let existed = ctx.storage.get_project(project_name).await?.is_some();
+        let mut project = ctx.storage.get_or_create_project(project_name).await?;
+        // Checked on the resolved project, not on `existed`: another client may have
+        // created and filled it between the two calls.
+        if !args.merge {
+            let entity_count = ctx.storage.get_all_entities(&project.id).await?.len();
+            if entity_count > 0 {
+                anyhow::bail!(
+                    "Project '{}' already has {} entities. Use --merge to add to existing data.",
+                    project_name,
+                    entity_count
+                );
             }
-            existing
-        } else {
-            let mut p = Project::new(project_name);
+        }
+        if !existed && project.description.is_none() {
             if let Some(desc) = &project_data.description {
-                p = p.with_description(desc);
+                project = project.with_description(desc);
+                ctx.storage.save_project(&project).await?;
             }
-            ctx.storage.save_project(&p).await?;
-            p
-        };
+        }
 
         // Build entities batch
         let entities: Vec<Entity> = project_data
@@ -254,10 +242,13 @@ pub async fn run_export(args: &ExportArgs, cli: &Cli, ctx: &AppContext) -> anyho
         projects: project_exports,
     };
 
-    let content = match args.format {
-        ExportFormat::Json => serde_json::to_string_pretty(&export_data)?,
-        ExportFormat::Csv => export_to_csv(&export_data),
-        ExportFormat::GraphML => export_to_graphml(&export_data),
+    // `export` uses the same global --format as everything else. Table is not a
+    // serialization format, so the default falls through to JSON, which is what
+    // `parsnip export` with no flag has always produced.
+    let content = match cli.format {
+        OutputFormat::Json | OutputFormat::Table => serde_json::to_string_pretty(&export_data)?,
+        OutputFormat::Csv => export_to_csv(&export_data),
+        OutputFormat::Graphml => export_to_graphml(&export_data),
     };
 
     if let Some(ref path) = args.output {
@@ -421,23 +412,17 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
 
     // Get project name
     let project_name = args.target_project.as_deref().unwrap_or("default");
-    let project = if let Some(existing) = ctx.storage.get_project(project_name).await? {
-        if !args.merge {
-            let entity_count = ctx.storage.get_all_entities(&existing.id).await?.len();
-            if entity_count > 0 {
-                anyhow::bail!(
-                    "Project '{}' already has {} entities. Use --merge to add to existing data.",
-                    project_name,
-                    entity_count
-                );
-            }
+    let project = ctx.storage.get_or_create_project(project_name).await?;
+    if !args.merge {
+        let entity_count = ctx.storage.get_all_entities(&project.id).await?.len();
+        if entity_count > 0 {
+            anyhow::bail!(
+                "Project '{}' already has {} entities. Use --merge to add to existing data.",
+                project_name,
+                entity_count
+            );
         }
-        existing
-    } else {
-        let p = Project::new(project_name);
-        ctx.storage.save_project(&p).await?;
-        p
-    };
+    }
 
     // Read entities from knowledgegraph-mcp into batch
     let mut stmt = conn.prepare("SELECT name, entity_type, observations, tags FROM entities")?;

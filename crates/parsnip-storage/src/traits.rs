@@ -98,6 +98,24 @@ pub trait StorageBackend: Send + Sync {
     /// Delete a project and all its data
     async fn delete_project(&self, name: &str) -> StorageResult<()>;
 
+    /// Resolve a project by name, creating it if absent.
+    ///
+    /// The default is a plain get-then-create. That is only safe for a single caller:
+    /// two concurrent callers can both see no project and each mint a different
+    /// `ProjectId`, and since entity keys embed that id, the loser's entities become
+    /// unreachable. Shared callers must serialize it (the storage RPC dispatcher holds a
+    /// lock around it) or delegate it to whoever does (`RemoteStorage` makes one atomic
+    /// server-side call).
+    async fn get_or_create_project(&self, name: &str) -> StorageResult<Project> {
+        if let Some(existing) = self.get_project(name).await? {
+            return Ok(existing);
+        }
+        let project = Project::new(name);
+        self.save_project(&project).await?;
+        tracing::debug!(project = name, id = %project.id, "created project");
+        Ok(project)
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Bulk Operations
     // ─────────────────────────────────────────────────────────────────────────

@@ -3,11 +3,12 @@ name = "parsnip-mcp"
 description = "MCP server for Parsnip memory management platform"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["fulltext"]
+default = ["fulltext", "sse"]
 fulltext = ["parsnip-search/fulltext"]
 sse = ["axum", "tower", "tower-http", "async-stream"]
 
@@ -40,3 +41,7 @@ async-stream = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# The contract test drives a real router over real HTTP with the real client, which is
+# what catches drift between the client's JSON-RPC envelope and this crate's.
+parsnip-storage = { workspace = true, features = ["remote"] }
+reqwest = { workspace = true }

@@ -10,6 +10,17 @@ pub mod transport;
 #[cfg(feature = "sse")]
 pub mod sse;
 
+/// JSON-RPC method prefix for the storage RPC surface used by remote CLI clients.
+/// Distinct from the MCP `tools/*` surface, which is for LLM clients.
+pub const STORAGE_METHOD_PREFIX: &str = "storage/";
+
+/// JSON-RPC method for server-side search, used by remote CLI clients.
+pub const SEARCH_METHOD: &str = "search/query";
+
+/// Capabilities advertised on `/health` so clients can detect version skew before
+/// issuing calls the daemon does not implement.
+pub const CAPABILITIES: &[&str] = &["storage/v1", "search/v1"];
+
 pub use server::McpServer;
 
 #[cfg(feature = "sse")]

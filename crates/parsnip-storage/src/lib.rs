@@ -7,6 +7,7 @@
 
 pub mod error;
 pub mod migration;
+pub mod remote;
 pub mod traits;
 
 #[cfg(feature = "redb")]
@@ -19,6 +20,7 @@ pub mod memory;
 
 pub use error::{StorageError, StorageResult};
 pub use migration::{Migratable, SchemaVersion, CURRENT_VERSION};
+pub use remote::{StorageDispatcher, WireError};
 pub use traits::StorageBackend;
 
 #[cfg(feature = "redb")]

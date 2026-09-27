@@ -6,9 +6,14 @@
 - `crates/` contains workspace members:
   - `crates/parsnip-core/`: domain types + the `KnowledgeGraph` trait.
   - `crates/parsnip-storage/`: storage backends + the `StorageBackend` trait.
-  - `crates/parsnip-{search,cli,mcp}/`: scaffolding (may be incomplete while bootstrapping).
-- `docs/` contains design docs (start with `docs/spec.md`).
-- `tests/` is reserved for workspace-level integration tests (currently empty).
+    - `crates/parsnip-storage/src/remote/`: the storage RPC. `protocol` is the wire format,
+      `dispatch` is the server side, `client` is `RemoteStorage` (behind the `remote` feature).
+  - `crates/parsnip-{search,cli,mcp}/`: search engines, the CLI, and the MCP server.
+- `docs/` contains design docs. Start with `docs/index.md`; `docs/c4model.md` is the
+  architecture source of truth and must be updated with any architecture change.
+- `deploy/` holds deployment artefacts (the launchd plist for the daemon).
+- Integration tests live in `crates/<pkg>/tests/`. A workspace-root `tests/` directory is
+  not compiled by cargo.
 - `benches/` is reserved for benchmarks.
 - `assets/` is reserved for non-code assets.
 
@@ -17,13 +22,15 @@
 - `cargo fmt` — format the codebase (rustfmt defaults).
 - `cargo clippy --workspace --all-targets --all-features` — lint for common Rust issues.
 - `cargo test --workspace --all-features` — run unit + integration tests.
+- Default features include `sse` (the HTTP/SSE server) and `remote` (the HTTP client).
+  Keep a `--no-default-features` build working so the feature-gated fallbacks do not rot.
 - `cargo doc --workspace --no-deps` — build API docs locally.
 
 Note: if `cargo` fails due to missing workspace members, add the missing crate `Cargo.toml` files or temporarily remove unfinished members from `[workspace].members`.
 
 ## Coding Style & Naming Conventions
 
-- Rust edition is 2021; keep the MSRV in `Cargo.toml` (`rust-version = "1.75"`).
+- Rust edition is 2021; keep the MSRV in `Cargo.toml` (`rust-version = "1.85"`, required by the locked redb).
 - Prefer workspace dependencies: add to `[workspace.dependencies]`, then reference via `{ workspace = true }`.
 - Naming: `snake_case` for modules/functions, `UpperCamelCase` for types/traits, `SCREAMING_SNAKE_CASE` for constants.
 - Errors: use `thiserror` for library error enums; use `anyhow` for binary entrypoints.

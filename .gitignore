@@ -19,3 +19,6 @@ Thumbs.db
 # Data files
 *.db
 *.redb
+
+# Local backups (knowledge-graph exports; never commit)
+.backups/

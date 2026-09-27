@@ -4,10 +4,10 @@ use std::collections::{HashMap, HashSet};
 
 use clap::Args;
 
+use crate::view::{emit, SearchHit, SearchHitRelation, SearchView};
 use crate::{AppContext, Cli};
 use parsnip_core::{ProjectId, Relation, SearchMode, SearchQuery};
 use parsnip_search::{ExactSearchEngine, FuzzySearchEngine, SearchEngine};
-use parsnip_storage::StorageBackend;
 
 #[derive(Args)]
 pub struct SearchArgs {
@@ -47,13 +47,9 @@ pub struct SearchArgs {
     pub include_relations: bool,
 }
 
+/// Delegates to [`AppContext::project_id`], which is atomic in remote mode.
 async fn get_project_id(project_name: &str, ctx: &AppContext) -> anyhow::Result<ProjectId> {
-    if let Some(project) = ctx.storage.get_project(project_name).await? {
-        return Ok(project.id);
-    }
-    let project = parsnip_core::Project::new(project_name);
-    ctx.storage.save_project(&project).await?;
-    Ok(project.id)
+    ctx.project_id(project_name).await
 }
 
 pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Result<()> {
@@ -104,6 +100,15 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         query = query.in_project(project_id);
     }
 
+    // In remote mode the daemon runs the search. Pulling the whole entity set across the
+    // network per query would be wasteful, and full-text cannot work client-side at all
+    // because the index belongs to whoever owns the data.
+    #[cfg(feature = "remote")]
+    if let Some(remote) = &ctx.remote {
+        let results = remote.search(&query, Some(args.limit)).await?;
+        return render_results(&results, args, cli, ctx, scope).await;
+    }
+
     // Get entities to search
     let entities = if args.all_projects {
         ctx.storage.get_all_entities_all_projects().await?
@@ -120,13 +125,22 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         }
         #[cfg(feature = "fulltext")]
         SearchMode::FullText | SearchMode::Hybrid => {
-            if let Some(ref fulltext) = ctx.fulltext {
-                use parsnip_search::SearchEngine;
-                fulltext.search(&query, &entities).await?
-            } else {
-                tracing::warn!("Full-text search not available, falling back to exact search");
-                let search_engine = ExactSearchEngine::new();
-                search_engine.search(&query, &entities).await?
+            // Built per query against the entities just fetched, rather than reusing an
+            // on-disk index. The on-disk copy took tantivy's writer lock on every CLI
+            // invocation, including ones that never search, and it cannot exist at all in
+            // remote mode where the daemon owns the data.
+            //
+            // Results are unchanged: the on-disk index rebuilt itself whenever the reader
+            // saw no documents, and hits are filtered against `entities` either way.
+            // Cost is a full reindex per query, O(corpus). Fine at this scale, and the
+            // MCP server has always worked this way.
+            use parsnip_search::SearchEngine;
+            match parsnip_search::FullTextSearchEngine::in_memory() {
+                Ok(engine) => engine.search(&query, &entities).await?,
+                Err(e) => {
+                    tracing::warn!("Full-text search unavailable ({e}), falling back to exact");
+                    ExactSearchEngine::new().search(&query, &entities).await?
+                }
             }
         }
         #[cfg(not(feature = "fulltext"))]
@@ -141,7 +155,21 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         }
     };
 
-    let display_results: Vec<_> = results.into_iter().take(args.limit).collect();
+    render_results(&results, args, cli, ctx, scope).await
+}
+
+/// Render search results.
+///
+/// Shared by the local and the remote path so both produce identical output; that
+/// equality is what the parity test asserts.
+async fn render_results(
+    results: &[parsnip_core::Entity],
+    args: &SearchArgs,
+    cli: &Cli,
+    ctx: &AppContext,
+    scope: &str,
+) -> anyhow::Result<()> {
+    let display_results: Vec<_> = results.iter().take(args.limit).cloned().collect();
 
     tracing::info!(
         "Search returned {} results in {}",
@@ -149,80 +177,77 @@ pub async fn run(args: &SearchArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Resu
         scope
     );
 
-    if display_results.is_empty() {
-        println!("No results found in {}", scope);
+    // Pre-fetch relations once per project to avoid N+1 queries
+    let all_relations: Vec<Relation> = if args.include_relations && !display_results.is_empty() {
+        let project_ids: HashSet<&ProjectId> =
+            display_results.iter().map(|e| &e.project_id).collect();
+        let mut rels = Vec::new();
+        for project_id in project_ids {
+            if let Ok(r) = ctx.storage.get_all_relations(project_id).await {
+                rels.extend(r);
+            }
+        }
+        rels
     } else {
-        if let Some(ref q) = args.query {
-            println!(
-                "Search results for '{}' in {} ({} found):",
-                q,
-                scope,
-                display_results.len()
-            );
-        } else {
-            println!(
-                "Search results for tags {:?} in {} ({} found):",
-                args.tag,
-                scope,
-                display_results.len()
-            );
-        }
+        Vec::new()
+    };
 
-        // Pre-fetch relations once per project to avoid N+1 queries
-        let all_relations: Vec<Relation> = if args.include_relations {
-            // Collect unique project IDs
-            let project_ids: HashSet<&ProjectId> =
-                display_results.iter().map(|e| &e.project_id).collect();
-
-            // Fetch all relations for each project
-            let mut rels = Vec::new();
-            for project_id in project_ids {
-                if let Ok(r) = ctx.storage.get_all_relations(project_id).await {
-                    rels.extend(r);
-                }
-            }
-            rels
-        } else {
-            Vec::new()
-        };
-
-        // Index relations by (project_id, entity_name) to avoid cross-project mixing
-        let mut relations_by_project: HashMap<ProjectId, HashMap<&str, Vec<&Relation>>> =
-            HashMap::new();
-        for rel in &all_relations {
-            let by_entity = relations_by_project
-                .entry(rel.project_id.clone())
-                .or_default();
-            by_entity
-                .entry(rel.from_name.as_str())
-                .or_default()
-                .push(rel);
-            by_entity.entry(rel.to_name.as_str()).or_default().push(rel);
-        }
-
-        for entity in &display_results {
-            let tags = if entity.tags.is_empty() {
-                String::new()
-            } else {
-                format!(" [{}]", entity.tags.join(", "))
-            };
-            println!("  {} ({}){}", entity.name, entity.entity_type.0, tags);
-
-            if args.include_relations {
-                if let Some(by_entity) = relations_by_project.get(&entity.project_id) {
-                    if let Some(relations) = by_entity.get(entity.name.as_str()) {
-                        for rel in relations {
-                            if rel.from_name == entity.name {
-                                println!("    -> {} ({})", rel.to_name, rel.relation_type);
-                            } else {
-                                println!("    <- {} ({})", rel.from_name, rel.relation_type);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // Index relations by (project_id, entity_name) to avoid cross-project mixing
+    let mut relations_by_project: HashMap<ProjectId, HashMap<&str, Vec<&Relation>>> =
+        HashMap::new();
+    for rel in &all_relations {
+        let by_entity = relations_by_project
+            .entry(rel.project_id.clone())
+            .or_default();
+        by_entity
+            .entry(rel.from_name.as_str())
+            .or_default()
+            .push(rel);
+        by_entity.entry(rel.to_name.as_str()).or_default().push(rel);
     }
+
+    let view = SearchView {
+        query: args.query.clone(),
+        tags: args.tag.clone(),
+        scope: scope.to_string(),
+        results: display_results
+            .iter()
+            .map(|entity| {
+                let relations = relations_by_project
+                    .get(&entity.project_id)
+                    .and_then(|by_entity| by_entity.get(entity.name.as_str()))
+                    .map(|rels| {
+                        rels.iter()
+                            .map(|rel| {
+                                if rel.from_name == entity.name {
+                                    SearchHitRelation {
+                                        direction: "->",
+                                        other: rel.to_name.clone(),
+                                        relation_type: rel.relation_type.clone(),
+                                    }
+                                } else {
+                                    SearchHitRelation {
+                                        direction: "<-",
+                                        other: rel.from_name.clone(),
+                                        relation_type: rel.relation_type.clone(),
+                                    }
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                SearchHit {
+                    name: entity.name.clone(),
+                    entity_type: entity.entity_type.0.clone(),
+                    tags: entity.tags.clone(),
+                    relations,
+                }
+            })
+            .collect(),
+    };
+
+    emit(&view, cli.format)?;
 
     Ok(())
 }

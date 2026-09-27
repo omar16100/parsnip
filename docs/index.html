@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>parsnip — local-first memory graph</title>
+  <title>parsnip: local-first memory graph</title>
   <meta name="description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Fast, private, portable.">
 
   <!-- Open Graph -->
-  <meta property="og:title" content="parsnip — local-first memory graph">
+  <meta property="og:title" content="parsnip: local-first memory graph">
   <meta property="og:description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Fast, private, portable.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://omar16100.github.io/parsnip/">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="parsnip — local-first memory graph">
+  <meta name="twitter:title" content="parsnip: local-first memory graph">
   <meta name="twitter:description" content="A single-binary graph database for AI assistants. Store facts as entities and relations.">
 
   <!-- Favicon (data URI - amber color) -->
@@ -1033,24 +1033,17 @@
         <div class="install-tabs" role="tablist" aria-label="Installation methods">
           <button class="install-tab active" role="tab" aria-selected="true" aria-controls="install-shell" id="tab-shell" tabindex="0">Shell</button>
           <button class="install-tab" role="tab" aria-selected="false" aria-controls="install-cargo" id="tab-cargo" tabindex="-1">Cargo</button>
-          <button class="install-tab" role="tab" aria-selected="false" aria-controls="install-homebrew" id="tab-homebrew" tabindex="-1">Homebrew</button>
         </div>
         <div id="install-shell" class="install-content active" role="tabpanel" aria-labelledby="tab-shell">
           <div class="install-box" role="button" tabindex="0" aria-label="Copy shell install command">
             <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            <code>curl -fsSL parsnip.sh/install | sh</code>
+            <code>curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh</code>
           </div>
         </div>
         <div id="install-cargo" class="install-content" role="tabpanel" aria-labelledby="tab-cargo" hidden>
           <div class="install-box" role="button" tabindex="0" aria-label="Copy cargo install command">
             <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
             <code>cargo install parsnip-cli</code>
-          </div>
-        </div>
-        <div id="install-homebrew" class="install-content" role="tabpanel" aria-labelledby="tab-homebrew" hidden>
-          <div class="install-box" role="button" tabindex="0" aria-label="Copy homebrew install command">
-            <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            <code>brew install omar16100/tap/parsnip</code>
           </div>
         </div>
       </div>
@@ -1072,7 +1065,7 @@
         <div class="feature-card">
           <div class="feature-icon">🕸️</div>
           <h3>Graph-Native</h3>
-          <p>Store knowledge as entities, relations, and observations. Not SQL with JSON blobs—true graph semantics.</p>
+          <p>Store knowledge as entities, relations, and observations. Not SQL with JSON blobs: true graph semantics.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔍</div>
@@ -1081,18 +1074,18 @@
         </div>
         <div class="feature-card">
           <div class="feature-icon">⚡</div>
-          <h3>Blazing Fast</h3>
-          <p>&lt;10ms cold start. &lt;5ms search on 10k entities. Single binary, zero external dependencies.</p>
+          <h3>Fast by Design</h3>
+          <p>Single binary, zero external dependencies. Design targets: &lt;10ms cold start, &lt;5ms search on 10k entities (not yet benchmarked).</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔀</div>
-          <h3>Hybrid Search</h3>
-          <p>Fuzzy matching for typos + full-text search for relevance. Find what you meant, not just what you typed.</p>
+          <h3>Fuzzy + Full-text</h3>
+          <p>Fuzzy matching for typos, full-text search for relevance. Find what you meant, not just what you typed.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🤖</div>
           <h3>MCP Integration</h3>
-          <p>12 tools for AI assistants via Model Context Protocol. Works with Claude Desktop out of the box.</p>
+          <p>13 tools for AI assistants via Model Context Protocol. Works with Claude Desktop out of the box.</p>
         </div>
       </div>
     </div>
@@ -1134,6 +1127,7 @@
           <div class="tool-item"><code>add_tags</code><span>Tag entities for filtering</span></div>
           <div class="tool-item"><code>remove_tags</code><span>Remove tags from entities</span></div>
           <div class="tool-item"><code>traverse_graph</code><span>BFS/Dijkstra graph traversal</span></div>
+          <div class="tool-item"><code>list_projects</code><span>Projects with entity/relation counts</span></div>
         </div>
       </div>
     </div>
@@ -1150,7 +1144,7 @@
         </div>
         <div class="search-card">
           <h4>Fuzzy</h4>
-          <p>Nucleo-based typo tolerance with configurable threshold</p>
+          <p>Nucleo-based typo tolerance</p>
         </div>
         <div class="search-card">
           <h4>Full-text</h4>
@@ -1158,11 +1152,7 @@
         </div>
         <div class="search-card">
           <h4>Hybrid</h4>
-          <p>Combined fuzzy + fulltext for best results</p>
-        </div>
-        <div class="search-card">
-          <h4>Vector</h4>
-          <p>Cosine similarity for semantic matching</p>
+          <p>Accepted; currently runs the full-text engine</p>
         </div>
       </div>
     </div>
@@ -1171,7 +1161,8 @@
   <!-- Performance -->
   <section class="perf-section">
     <div class="container">
-      <h2 class="section-title">Performance</h2>
+      <h2 class="section-title">Performance Targets</h2>
+      <p>Design targets from the specification. They have not been benchmarked yet.</p>
       <table class="perf-table">
         <thead>
           <tr><th>Operation</th><th>Target</th></tr>
@@ -1197,41 +1188,41 @@
         <div class="cli-group">
           <h4>entity</h4>
           <ul>
-            <li><code>add</code> — create with observations/tags</li>
-            <li><code>list</code> — filter by type/tag</li>
-            <li><code>get</code> — view full details</li>
-            <li><code>delete</code> — remove entity</li>
-            <li><code>observe</code> — add new facts</li>
+            <li><code>add</code>: create with observations/tags</li>
+            <li><code>list</code>: filter by type/tag</li>
+            <li><code>get</code>: view full details</li>
+            <li><code>delete</code>: remove entity</li>
+            <li><code>observe</code>: add new facts</li>
           </ul>
         </div>
         <div class="cli-group">
           <h4>relation</h4>
           <ul>
-            <li><code>add</code> — create typed connection</li>
-            <li><code>list</code> — filter by from/to/type</li>
-            <li><code>delete</code> — remove relation</li>
-            <li><code>traverse</code> — BFS/DFS exploration</li>
-            <li><code>find-path</code> — shortest path</li>
+            <li><code>add</code>: create typed connection</li>
+            <li><code>list</code>: filter by from/to/type</li>
+            <li><code>delete</code>: remove relation</li>
+            <li><code>traverse</code>: BFS exploration</li>
+            <li><code>find-path</code>: shortest path</li>
           </ul>
         </div>
         <div class="cli-group">
           <h4>search</h4>
           <ul>
-            <li><code>--mode exact</code> — substring match</li>
-            <li><code>--mode fuzzy</code> — typo-tolerant</li>
-            <li><code>--mode fulltext</code> — BM25 ranking</li>
-            <li><code>--mode hybrid</code> — combined</li>
-            <li><code>--all-projects</code> — cross-project</li>
+            <li><code>--mode exact</code>: substring match</li>
+            <li><code>--mode fuzzy</code>: typo-tolerant</li>
+            <li><code>--mode fulltext</code>: BM25 ranking</li>
+            <li><code>--mode hybrid</code>: currently full-text</li>
+            <li><code>--all-projects</code>: cross-project</li>
           </ul>
         </div>
         <div class="cli-group">
           <h4>project</h4>
           <ul>
-            <li><code>list</code> — all namespaces</li>
-            <li><code>create</code> — new project</li>
-            <li><code>use</code> — set default</li>
-            <li><code>delete</code> — remove project</li>
-            <li><code>stats</code> — entity/relation counts</li>
+            <li><code>list</code>: all namespaces</li>
+            <li><code>create</code>: new project</li>
+            <li><code>use</code>: save a default to config</li>
+            <li><code>delete</code>: remove project</li>
+            <li><code>stats</code>: entity/relation counts</li>
           </ul>
         </div>
         <div class="cli-group">
@@ -1240,17 +1231,17 @@
             <li><code>export -o backup.json</code></li>
             <li><code>export --all-projects</code></li>
             <li><code>import data.json</code></li>
-            <li><code>import --merge</code> — incremental</li>
+            <li><code>import --merge</code>: incremental</li>
             <li><code>import --target-project</code></li>
           </ul>
         </div>
         <div class="cli-group">
           <h4>serve</h4>
           <ul>
-            <li><code>serve</code> — stdio MCP server</li>
-            <li><code>serve -t sse</code> — HTTP/SSE</li>
-            <li><code>--port 3000</code> — custom port</li>
-            <li><code>--host 0.0.0.0</code> — bind address</li>
+            <li><code>serve</code>: stdio MCP server</li>
+            <li><code>serve -t sse</code>: HTTP/SSE</li>
+            <li><code>--port 3000</code>: custom port</li>
+            <li><code>--host</code>: bind address (non-localhost needs <code>--allow-remote</code> and a token)</li>
           </ul>
         </div>
       </div>
@@ -1265,12 +1256,12 @@
         <div class="storage-card">
           <h4>ReDB</h4>
           <span class="badge">Default</span>
-          <p>Embedded key-value store with ACID transactions, memory-mapped I/O, and zero external dependencies.</p>
+          <p>Embedded key-value store with ACID transactions and zero external dependencies.</p>
         </div>
         <div class="storage-card">
           <h4>SQLite</h4>
           <span class="badge">Feature Flag</span>
-          <p>Familiar relational backend. Compatible with SQL tools. Enable with <code>--features sqlite</code>.</p>
+          <p>Familiar relational backend. Compatible with SQL tools. Build with <code>--no-default-features --features sqlite,fulltext</code>.</p>
         </div>
         <div class="storage-card">
           <h4>Memory</h4>
@@ -1369,13 +1360,13 @@
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-2" id="faq-btn-2">How is data stored?</button>
           <div class="faq-answer" id="faq-2" role="region" aria-labelledby="faq-btn-2">
-            <p>Data is stored locally using ReDB (default) or SQLite. Everything stays on your machine—no cloud, no sync, no accounts. You can export to JSON for backup or migration.</p>
+            <p>Data is stored locally using ReDB (default) or SQLite. Everything stays on your machine: no cloud, no sync, no accounts. You can export to JSON for backup or migration.</p>
           </div>
         </div>
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-3" id="faq-btn-3">Can I use it with Claude or other AI assistants?</button>
           <div class="faq-answer" id="faq-3" role="region" aria-labelledby="faq-btn-3">
-            <p>Yes! Parsnip includes an MCP (Model Context Protocol) server with 12 tools. Add it to Claude Desktop config and Claude gains persistent memory that survives across conversations.</p>
+            <p>Yes! Parsnip includes an MCP (Model Context Protocol) server with 13 tools. Add it to Claude Desktop config and Claude gains persistent memory that survives across conversations.</p>
           </div>
         </div>
         <div class="faq-item">
@@ -1393,7 +1384,7 @@
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-6" id="faq-btn-6">Can I use SQLite instead of ReDB?</button>
           <div class="faq-answer" id="faq-6" role="region" aria-labelledby="faq-btn-6">
-            <p>Yes! Build with the sqlite feature flag: <code>cargo install parsnip --features sqlite</code>. SQLite is compatible with standard SQL tools for inspection.</p>
+            <p>Yes! Build without the default ReDB backend: <code>cargo install parsnip-cli --no-default-features --features sqlite,fulltext</code>. SQLite is compatible with standard SQL tools for inspection.</p>
           </div>
         </div>
         <div class="faq-item">
@@ -1405,13 +1396,13 @@
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-8" id="faq-btn-8">What's the difference between search modes?</button>
           <div class="faq-answer" id="faq-8" role="region" aria-labelledby="faq-btn-8">
-            <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant with Levenshtein distance. <strong>Fulltext</strong>: BM25 relevance ranking. <strong>Hybrid</strong>: combines fuzzy + fulltext. <strong>Vector</strong>: semantic similarity with embeddings.</p>
+            <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant (nucleo matcher). <strong>Fulltext</strong>: BM25 relevance ranking. <strong>Hybrid</strong>: accepted, currently runs the full-text engine.</p>
           </div>
         </div>
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-9" id="faq-btn-9">How do I traverse the graph?</button>
           <div class="faq-answer" id="faq-9" role="region" aria-labelledby="faq-btn-9">
-            <p>Use <code>parsnip relation traverse EntityName</code> with options: <code>-d 3</code> for depth, <code>--direction outgoing</code>, or filter with <code>--entity-types person</code> and <code>--relation-types works_at</code>.</p>
+            <p>Use <code>parsnip relation traverse EntityName</code> with options: <code>--depth 3</code> for depth, <code>--direction outgoing</code>, or filter with <code>--entity-types person</code> and <code>--relation-types works_at</code>.</p>
           </div>
         </div>
       </div>
@@ -1442,8 +1433,7 @@
     // ===== Configuration =====
     const installCommands = {
       shell: 'curl -fsSL https://raw.githubusercontent.com/omar16100/parsnip/main/install.sh | sh',
-      cargo: 'cargo install parsnip-cli',
-      homebrew: 'brew install omar16100/tap/parsnip'
+      cargo: 'cargo install parsnip-cli'
     };
 
     const mcpConfig = `{
@@ -1465,7 +1455,7 @@
     // ===== Tab Navigation =====
     const tabs = document.querySelectorAll('.install-tab');
     const tabPanels = document.querySelectorAll('.install-content');
-    const tabNames = ['shell', 'cargo', 'homebrew'];
+    const tabNames = ['shell', 'cargo'];
 
     function switchTab(index) {
       tabs.forEach((tab, i) => {

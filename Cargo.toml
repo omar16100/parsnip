@@ -9,9 +9,9 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/omar16100/parsnip"
 homepage = "https://github.com/omar16100/parsnip"
@@ -19,10 +19,10 @@ authors = ["Parsnip Contributors"]
 
 [workspace.dependencies]
 # Internal crates
-parsnip-core = { version = "0.1.0", path = "crates/parsnip-core" }
-parsnip-storage = { version = "0.1.0", path = "crates/parsnip-storage" }
-parsnip-search = { version = "0.1.0", path = "crates/parsnip-search" }
-parsnip-mcp = { version = "0.1.0", path = "crates/parsnip-mcp" }
+parsnip-core = { version = "0.2.0", path = "crates/parsnip-core" }
+parsnip-storage = { version = "0.2.0", path = "crates/parsnip-storage" }
+parsnip-search = { version = "0.2.0", path = "crates/parsnip-search" }
+parsnip-mcp = { version = "0.2.0", path = "crates/parsnip-mcp" }
 
 # Async Runtime
 tokio = { version = "1.40", features = ["full"] }
@@ -68,6 +68,13 @@ axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "limit"] }
 async-stream = "0.3"
+
+# HTTP client for remote storage mode.
+# No TLS features: the daemon is reached over Tailscale, which already encrypts and
+# authenticates at the transport layer, and hyper/http/tower are already in the graph via
+# axum, so this pulls in very little that is not already built. `remote-tls` opts into
+# rustls for anyone fronting the daemon with HTTPS.
+reqwest = { version = "0.12", default-features = false, features = ["json", "charset"] }
 
 # Testing
 tempfile = "3.13"

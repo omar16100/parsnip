@@ -69,16 +69,29 @@ fn default_page_size() -> usize {
     100
 }
 
+/// Largest page a search returns.
+pub const MAX_PAGE_SIZE: usize = 1000;
+
 impl Pagination {
     pub fn new(page: usize, page_size: usize) -> Self {
         Self {
             page,
-            page_size: page_size.min(1000), // Max 1000 per page
+            page_size: page_size.clamp(1, MAX_PAGE_SIZE),
         }
     }
 
+    /// Page size clamped to `1..=MAX_PAGE_SIZE`.
+    ///
+    /// Engines must use this rather than `page_size`: the struct is also deserialized from
+    /// the network (the daemon's `search/query`), where `new` never ran. A zero page size
+    /// made tantivy panic, which aborts a release build and takes the daemon down.
+    pub fn limit(&self) -> usize {
+        self.page_size.clamp(1, MAX_PAGE_SIZE)
+    }
+
+    /// Number of results to skip. Saturates rather than overflowing on huge page numbers.
     pub fn offset(&self) -> usize {
-        self.page * self.page_size
+        self.page.saturating_mul(self.limit())
     }
 }
 
@@ -246,7 +259,7 @@ pub struct PaginationInfo {
 
 impl PaginationInfo {
     pub fn new(current_page: usize, page_size: usize, total_count: usize) -> Self {
-        let total_pages = total_count.div_ceil(page_size);
+        let total_pages = total_count.div_ceil(page_size.max(1));
         Self {
             current_page,
             page_size,
@@ -283,6 +296,15 @@ mod tests {
     fn test_pagination() {
         let pagination = Pagination::new(2, 50);
         assert_eq!(pagination.offset(), 100);
+
+        // Deserialized input bypasses `new`, so the accessors must clamp on their own.
+        let hostile: Pagination =
+            serde_json::from_str(r#"{"page": 18446744073709551615, "page_size": 0}"#).unwrap();
+        assert_eq!(hostile.limit(), 1);
+        assert_eq!(hostile.offset(), usize::MAX);
+        let huge: Pagination =
+            serde_json::from_str(r#"{"page": 0, "page_size": 999999999}"#).unwrap();
+        assert_eq!(huge.limit(), MAX_PAGE_SIZE);
     }
 
     #[test]
