@@ -378,6 +378,32 @@ fn unreachable_daemon_fails_without_panicking() {
     );
 }
 
+/// `--local` must override PARSNIP_SERVER, not be rejected as conflicting with it: the
+/// variable is exported in the normal remote-mode setup, and `--local` is the documented
+/// way to bypass the daemon for one command.
+#[test]
+fn local_flag_overrides_an_exported_server() {
+    let dir = TempDir::new().unwrap();
+    let unreachable = format!("http://127.0.0.1:{}", free_port());
+
+    stdout_of(local(dir.path()).env("PARSNIP_SERVER", &unreachable).args([
+        "entity",
+        "add",
+        "offline_only",
+        "-t",
+        "thing",
+    ]));
+    let listed = stdout_of(
+        local(dir.path())
+            .env("PARSNIP_SERVER", &unreachable)
+            .args(["entity", "list"]),
+    );
+    assert!(
+        listed.contains("offline_only"),
+        "--local should have used the local database, got: {listed}"
+    );
+}
+
 /// These commands never touch storage, so they must work while the database is locked.
 #[test]
 fn config_and_completions_work_while_the_database_is_locked() {

@@ -94,9 +94,10 @@ async fn auth_middleware<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     match auth_header {
         Some(auth) if auth.starts_with("Bearer ") => {
             let token = &auth[7..];
-            if token == expected_token {
+            if tokens_match(token, expected_token) {
                 next.run(request).await
             } else {
+                tracing::warn!(path = %request.uri().path(), "rejected request with an invalid token");
                 (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
             }
         }
@@ -106,6 +107,18 @@ async fn auth_middleware<S: StorageBackend + ?Sized + Send + Sync + 'static>(
         )
             .into_response(),
     }
+}
+
+/// Compare a presented token with the expected one without an early exit on the first
+/// differing byte, so response timing does not reveal how much of a guess was right.
+/// Only the length can leak, which says nothing useful about a random token.
+#[cfg(feature = "sse")]
+fn tokens_match(presented: &str, expected: &str) -> bool {
+    let (a, b) = (presented.as_bytes(), expected.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b).fold(0u8, |diff, (x, y)| diff | (x ^ y)) == 0
 }
 
 /// Create the SSE router
@@ -231,6 +244,13 @@ pub async fn run_sse_server<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     addr: &str,
     auth_token: Option<String>,
 ) -> anyhow::Result<()> {
+    if auth_token.is_none() {
+        tracing::warn!(
+            "no auth token set: any process that can reach {addr} can read and write the \
+             whole graph. Set --auth-token or PARSNIP_AUTH_TOKEN."
+        );
+    }
+
     let router = create_sse_router(server, auth_token);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -246,4 +266,18 @@ pub async fn run_sse_server<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     axum::serve(listener, router).await?;
 
     Ok(())
+}
+
+#[cfg(all(test, feature = "sse"))]
+mod tests {
+    use super::tokens_match;
+
+    #[test]
+    fn tokens_match_only_on_exact_equality() {
+        assert!(tokens_match("s3cret-token", "s3cret-token"));
+        assert!(!tokens_match("s3cret-tokeN", "s3cret-token"));
+        assert!(!tokens_match("s3cret", "s3cret-token"));
+        assert!(!tokens_match("", "s3cret-token"));
+        assert!(!tokens_match("s3cret-token-and-more", "s3cret-token"));
+    }
 }

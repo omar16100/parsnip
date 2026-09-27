@@ -60,8 +60,13 @@ pub struct Cli {
     #[arg(long, env = "PARSNIP_SERVER", global = true)]
     pub server: Option<String>,
 
-    /// Ignore any configured server and use the local database for this invocation
-    #[arg(long, global = true, conflicts_with = "server")]
+    /// Ignore any configured server and use the local database for this invocation.
+    /// Wins over --server, PARSNIP_SERVER and server_url.
+    ///
+    /// Deliberately not `conflicts_with = "server"`: clap counts a value taken from
+    /// PARSNIP_SERVER as the flag being present, so with the variable exported (the normal
+    /// remote-mode setup) `--local` was rejected outright instead of overriding it.
+    #[arg(long, global = true)]
     pub local: bool,
 
     /// Bearer token: required by `serve` for non-localhost, sent by remote-mode clients
@@ -288,8 +293,10 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         _ => "trace",
     };
 
+    // Logs go to stderr: stdout carries command output, and for `serve --transport stdio`
+    // it carries the JSON-RPC stream, which a stray log line would corrupt.
     tracing_subscriber::registry()
-        .with(fmt::layer())
+        .with(fmt::layer().with_writer(std::io::stderr))
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| filter.into()))
         .init();
 
