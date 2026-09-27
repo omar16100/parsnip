@@ -81,8 +81,22 @@ async fn auth_middleware<S: StorageBackend + ?Sized + Send + Sync + 'static>(
         return next.run(request).await;
     }
 
-    // If no auth token configured, allow all requests (localhost mode)
+    // No token configured: only reachable on loopback (`serve` refuses anything else), but
+    // a web page can still reach a loopback port through DNS rebinding, under its own
+    // hostname. Browsers always send that hostname in Host, so insist on a loopback one.
     let Some(expected_token) = &state.auth_token else {
+        if !host_is_loopback(&headers) {
+            tracing::warn!(
+                host = ?headers.get(header::HOST),
+                "rejected tokenless request with a non-loopback Host header"
+            );
+            return (
+                StatusCode::FORBIDDEN,
+                "Host not allowed: this daemon has no auth token, so it only accepts \
+                 loopback hostnames. Set --auth-token to serve other names.",
+            )
+                .into_response();
+        }
         return next.run(request).await;
     };
 
@@ -107,6 +121,31 @@ async fn auth_middleware<S: StorageBackend + ?Sized + Send + Sync + 'static>(
         )
             .into_response(),
     }
+}
+
+/// True if the Host header names a loopback address (`localhost`, `127.x.y.z`, `[::1]`),
+/// with or without a port. A missing header is allowed: browsers always send one, so its
+/// absence cannot be a rebinding attack.
+#[cfg(feature = "sse")]
+fn host_is_loopback(headers: &HeaderMap) -> bool {
+    let Some(value) = headers.get(header::HOST) else {
+        return true;
+    };
+    let Ok(host) = value.to_str() else {
+        return false;
+    };
+
+    // Strip the port: "[::1]:8787" -> "::1", "localhost:8787" -> "localhost".
+    let name = if let Some(rest) = host.strip_prefix('[') {
+        rest.split(']').next().unwrap_or("")
+    } else {
+        host.rsplit_once(':').map_or(host, |(name, _port)| name)
+    };
+
+    name.eq_ignore_ascii_case("localhost")
+        || name
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
 }
 
 /// Compare a presented token with the expected one without an early exit on the first
@@ -224,7 +263,9 @@ async fn message_handler<S: StorageBackend + ?Sized + Send + Sync + 'static>(
     // Storage RPCs are point-to-point CLI traffic. Broadcasting their responses would push
     // whole-graph payloads at every SSE subscriber, so only MCP responses go on the stream.
     // The broadcast is the sole delivery path to /sse subscribers, so it must stay for MCP.
-    let broadcastable = !request.method.starts_with(crate::STORAGE_METHOD_PREFIX);
+    // `search/query` is CLI traffic too, and its responses carry full entities.
+    let broadcastable = !request.method.starts_with(crate::STORAGE_METHOD_PREFIX)
+        && request.method != crate::SEARCH_METHOD;
 
     let response = state.server.handle_request_public(request).await;
 
@@ -270,7 +311,53 @@ pub async fn run_sse_server<S: StorageBackend + ?Sized + Send + Sync + 'static>(
 
 #[cfg(all(test, feature = "sse"))]
 mod tests {
-    use super::tokens_match;
+    use super::{host_is_loopback, tokens_match};
+    use axum::http::{header, HeaderMap, HeaderValue};
+
+    fn with_host(host: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_str(host).unwrap());
+        headers
+    }
+
+    #[test]
+    fn loopback_hosts_are_accepted() {
+        for host in [
+            "localhost",
+            "LOCALHOST:8787",
+            "127.0.0.1",
+            "127.0.0.1:8787",
+            "127.0.0.2:3000",
+            "[::1]",
+            "[::1]:8787",
+        ] {
+            assert!(
+                host_is_loopback(&with_host(host)),
+                "{host} should be accepted"
+            );
+        }
+        assert!(
+            host_is_loopback(&HeaderMap::new()),
+            "missing Host is not a browser"
+        );
+    }
+
+    #[test]
+    fn other_hosts_are_rejected() {
+        for host in [
+            "evil.example",
+            "evil.example:8787",
+            "localhost.evil.example",
+            "192.168.1.10:8787",
+            "[fe80::1]:8787",
+            "0.0.0.0:8787",
+        ] {
+            assert!(
+                !host_is_loopback(&with_host(host)),
+                "{host} should be rejected"
+            );
+        }
+    }
 
     #[test]
     fn tokens_match_only_on_exact_equality() {

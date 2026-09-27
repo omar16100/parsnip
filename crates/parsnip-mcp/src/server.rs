@@ -85,7 +85,7 @@ impl<S: StorageBackend + ?Sized + Send + Sync + 'static> McpServer<S> {
         }
 
         match request.method.as_str() {
-            "search/query" => self.handle_search_query(request.id, request.params).await,
+            crate::SEARCH_METHOD => self.handle_search_query(request.id, request.params).await,
             "initialize" => self.handle_initialize(request.id).await,
             "initialized" => JsonRpcResponse::success(request.id, serde_json::json!({})),
             "tools/list" => self.handle_tools_list(request.id).await,
@@ -131,7 +131,26 @@ impl<S: StorageBackend + ?Sized + Send + Sync + 'static> McpServer<S> {
             parsnip_core::ProjectScope::Single(project_id) => {
                 self.storage.get_all_entities(project_id).await
             }
-            _ => self.storage.get_all_entities_all_projects().await,
+            // The engines do not filter by project, so a multi-project scope has to be
+            // applied here, not widened to every project.
+            parsnip_core::ProjectScope::Multiple(project_ids) => {
+                let mut all = Vec::new();
+                let mut failed = None;
+                for project_id in project_ids {
+                    match self.storage.get_all_entities(project_id).await {
+                        Ok(mut entities) => all.append(&mut entities),
+                        Err(e) => {
+                            failed = Some(e);
+                            break;
+                        }
+                    }
+                }
+                match failed {
+                    Some(e) => Err(e),
+                    None => Ok(all),
+                }
+            }
+            parsnip_core::ProjectScope::All => self.storage.get_all_entities_all_projects().await,
         };
         let entities = match entities {
             Ok(e) => e,

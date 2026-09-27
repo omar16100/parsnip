@@ -4,7 +4,6 @@ use clap::{Args, Subcommand};
 
 use crate::view::{emit, CountRow, MutationView, ProjectListView, ProjectRow, ProjectStatsView};
 use crate::{AppContext, Cli};
-use parsnip_core::Project;
 
 #[derive(Args)]
 pub struct ProjectArgs {
@@ -73,12 +72,16 @@ pub async fn run(args: &ProjectArgs, cli: &Cli, ctx: &AppContext) -> anyhow::Res
                 return Ok(());
             }
 
-            let mut project = Project::new(name);
+            // Created through the atomic path rather than minting an id here: if another
+            // client created the same name in the meantime, reuse its id instead of
+            // rebinding the name and orphaning that client's entities.
+            let mut project = ctx.storage.get_or_create_project(name).await?;
             if let Some(desc) = description {
-                project = project.with_description(desc);
+                if project.description.is_none() {
+                    project = project.with_description(desc);
+                    ctx.storage.save_project(&project).await?;
+                }
             }
-
-            ctx.storage.save_project(&project).await?;
             tracing::info!("Created project: {}", name);
 
             let details = description

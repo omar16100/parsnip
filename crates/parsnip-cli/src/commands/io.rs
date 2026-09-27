@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::view::OutputFormat;
 use crate::{AppContext, Cli};
-use parsnip_core::{Entity, Project, Relation};
+use parsnip_core::{Entity, Relation};
 
 #[derive(Args)]
 pub struct ImportArgs {
@@ -103,27 +103,26 @@ pub async fn run_import(args: &ImportArgs, _cli: &Cli, ctx: &AppContext) -> anyh
     for project_data in data.projects {
         let project_name = args.target_project.as_deref().unwrap_or(&project_data.name);
 
-        // Get or create project
-        let project = if let Some(existing) = ctx.storage.get_project(project_name).await? {
-            if !args.merge {
-                let entity_count = ctx.storage.get_all_entities(&existing.id).await?.len();
-                if entity_count > 0 {
-                    anyhow::bail!(
-                        "Project '{}' already has {} entities. Use --merge to add to existing data.",
-                        project_name,
-                        entity_count
-                    );
-                }
+        // Get or create project through the atomic path (see `AppContext::project_id`), so
+        // a concurrent client creating the same name cannot end up with a different id.
+        let existed = ctx.storage.get_project(project_name).await?.is_some();
+        let mut project = ctx.storage.get_or_create_project(project_name).await?;
+        if existed && !args.merge {
+            let entity_count = ctx.storage.get_all_entities(&project.id).await?.len();
+            if entity_count > 0 {
+                anyhow::bail!(
+                    "Project '{}' already has {} entities. Use --merge to add to existing data.",
+                    project_name,
+                    entity_count
+                );
             }
-            existing
-        } else {
-            let mut p = Project::new(project_name);
+        }
+        if !existed && project.description.is_none() {
             if let Some(desc) = &project_data.description {
-                p = p.with_description(desc);
+                project = project.with_description(desc);
+                ctx.storage.save_project(&project).await?;
             }
-            ctx.storage.save_project(&p).await?;
-            p
-        };
+        }
 
         // Build entities batch
         let entities: Vec<Entity> = project_data
@@ -411,23 +410,18 @@ async fn import_from_knowledgegraph(args: &ImportArgs, ctx: &AppContext) -> anyh
 
     // Get project name
     let project_name = args.target_project.as_deref().unwrap_or("default");
-    let project = if let Some(existing) = ctx.storage.get_project(project_name).await? {
-        if !args.merge {
-            let entity_count = ctx.storage.get_all_entities(&existing.id).await?.len();
-            if entity_count > 0 {
-                anyhow::bail!(
-                    "Project '{}' already has {} entities. Use --merge to add to existing data.",
-                    project_name,
-                    entity_count
-                );
-            }
+    let existed = ctx.storage.get_project(project_name).await?.is_some();
+    let project = ctx.storage.get_or_create_project(project_name).await?;
+    if existed && !args.merge {
+        let entity_count = ctx.storage.get_all_entities(&project.id).await?.len();
+        if entity_count > 0 {
+            anyhow::bail!(
+                "Project '{}' already has {} entities. Use --merge to add to existing data.",
+                project_name,
+                entity_count
+            );
         }
-        existing
-    } else {
-        let p = Project::new(project_name);
-        ctx.storage.save_project(&p).await?;
-        p
-    };
+    }
 
     // Read entities from knowledgegraph-mcp into batch
     let mut stmt = conn.prepare("SELECT name, entity_type, observations, tags FROM entities")?;

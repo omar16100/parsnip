@@ -135,6 +135,18 @@ impl<S: StorageBackend + ?Sized> StorageDispatcher<S> {
             // ── Projects ────────────────────────────────────────────────────────────
             method::SAVE_PROJECT => {
                 let p: SaveProjectParams = parse(params)?;
+                // Under the creation lock, and never rebinding a name to a different id:
+                // entity keys embed the id, so rebinding would orphan every entity saved
+                // under the old one. Saving the same id again (e.g. a new description) is fine.
+                let _guard = self.project_create_lock.lock().await;
+                if let Some(existing) = b.get_project(&p.project.name).await.map_err(wire)? {
+                    if existing.id != p.project.id {
+                        return Err(wire(crate::error::StorageError::DuplicateProject(format!(
+                            "{} already exists with a different id",
+                            p.project.name
+                        ))));
+                    }
+                }
                 b.save_project(&p.project).await.map_err(wire)?;
                 ok(())
             }
@@ -275,6 +287,31 @@ mod tests {
             .await
             .expect("get_entity of a missing entity should succeed");
         assert!(result.is_null(), "expected null, got {result}");
+    }
+
+    #[tokio::test]
+    async fn save_project_refuses_to_rebind_a_name_to_a_new_id() {
+        let d = dispatcher();
+        let existing = d.get_or_create_project("taken").await.unwrap();
+
+        let impostor = Project::new("taken");
+        let err = d
+            .dispatch(
+                method::SAVE_PROJECT,
+                serde_json::json!({ "project": impostor }),
+            )
+            .await
+            .expect_err("a second id for an existing name must be refused");
+        assert_eq!(err.kind, "DuplicateProject");
+
+        // Re-saving the same id, e.g. to set a description, still works.
+        let described = existing.clone().with_description("now described");
+        d.dispatch(
+            method::SAVE_PROJECT,
+            serde_json::json!({ "project": described }),
+        )
+        .await
+        .expect("same id may be saved again");
     }
 
     #[tokio::test]

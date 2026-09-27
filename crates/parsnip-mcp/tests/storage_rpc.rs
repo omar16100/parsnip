@@ -283,3 +283,84 @@ async fn local_and_remote_agree_on_the_same_backend() {
         .expect("an entity written remotely is visible locally");
     assert_eq!(via_local.observations.len(), 1);
 }
+
+/// A tokenless daemon is reachable by a web page through DNS rebinding, under the page's
+/// own hostname. It must only answer loopback hostnames.
+#[tokio::test]
+async fn tokenless_daemon_rejects_foreign_host_headers() {
+    let (base, _) = spawn_daemon(None).await;
+    let ping = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "ping"});
+    let client = reqwest::Client::new();
+
+    let foreign = client
+        .post(format!("{base}/message"))
+        .header(reqwest::header::HOST, "rebind.example:8787")
+        .json(&ping)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(foreign.status(), reqwest::StatusCode::FORBIDDEN);
+
+    let loopback = client
+        .post(format!("{base}/message"))
+        .json(&ping)
+        .send()
+        .await
+        .unwrap();
+    assert!(loopback.status().is_success(), "{}", loopback.status());
+
+    // With a token the Host check is not needed: a rebinding page does not have it.
+    let (base, _) = spawn_daemon(Some("t0ken".into())).await;
+    let with_token = client
+        .post(format!("{base}/message"))
+        .header(reqwest::header::HOST, "daemon.example:8787")
+        .bearer_auth("t0ken")
+        .json(&ping)
+        .send()
+        .await
+        .unwrap();
+    assert!(with_token.status().is_success(), "{}", with_token.status());
+}
+
+/// `search/query` with a multi-project scope must not widen to every project.
+#[tokio::test]
+async fn search_respects_a_multi_project_scope() {
+    let (base, backend) = spawn_daemon(None).await;
+
+    let mut ids = Vec::new();
+    for name in ["alpha", "beta", "gamma"] {
+        let project = Project::new(name);
+        backend.save_project(&project).await.unwrap();
+        let mut entity = Entity::new(project.id.clone(), format!("{name}_widget"), "thing");
+        entity.add_observation("shared term");
+        backend.save_entity(&entity).await.unwrap();
+        ids.push(project.id);
+    }
+
+    let mut query = parsnip_core::SearchQuery::new("widget");
+    query.projects = parsnip_core::ProjectScope::Multiple(vec![ids[0].clone(), ids[1].clone()]);
+
+    let response: serde_json::Value = reqwest::Client::new()
+        .post(format!("{base}/message"))
+        .json(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "search/query",
+            "params": { "query": query }
+        }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    let mut names: Vec<&str> = response["result"]["entities"]
+        .as_array()
+        .expect("entities array")
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    names.sort();
+    assert_eq!(names, vec!["alpha_widget", "beta_widget"]);
+}

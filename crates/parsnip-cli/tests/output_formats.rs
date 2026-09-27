@@ -232,6 +232,25 @@ fn csv_is_refused_rather_than_faked_for_detail_shapes() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("not supported"));
 }
 
+/// The format is checked before the command runs. Otherwise the delete happens and only
+/// then does rendering refuse csv, reporting a usage error for a mutation that succeeded.
+#[test]
+fn refused_format_does_not_run_the_mutation() {
+    let dir = fixture();
+    let out = parsnip(dir.path())
+        .args(["--format", "csv", "entity", "delete", "widget", "--force"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("not supported"));
+
+    let listed = run(dir.path(), &["entity", "list"]);
+    assert!(
+        listed.contains("widget"),
+        "the entity must survive a refused format: {listed}"
+    );
+}
+
 #[test]
 fn graphml_is_export_only() {
     let dir = fixture();

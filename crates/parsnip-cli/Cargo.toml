@@ -3,6 +3,7 @@ name = "parsnip-cli"
 description = "CLI for Parsnip memory management platform"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
@@ -15,7 +16,7 @@ default = ["redb", "fulltext", "sse", "remote"]
 redb = ["parsnip-storage/redb"]
 sqlite = ["parsnip-storage/sqlite"]
 remote = ["parsnip-storage/remote"]
-remote-tls = ["parsnip-storage/remote-tls"]
+remote-tls = ["remote", "parsnip-storage/remote-tls"]
 fulltext = ["parsnip-search/fulltext"]
 sse = ["parsnip-mcp/sse"]
 migrate = ["rusqlite"]

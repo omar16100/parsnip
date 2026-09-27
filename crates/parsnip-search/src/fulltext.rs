@@ -143,7 +143,8 @@ impl SearchEngine for FullTextSearchEngine {
             .parse_query(text)
             .map_err(|e| SearchError::Query(e.to_string()))?;
 
-        let limit = query.pagination.page_size;
+        // Clamped: TopDocs::with_limit panics on 0, and the query may come off the network.
+        let limit = query.pagination.limit();
         let top_docs = searcher
             .search(&parsed_query, &TopDocs::with_limit(limit))
             .map_err(|e| SearchError::Query(e.to_string()))?;
@@ -262,5 +263,23 @@ mod tests {
 
         assert!(!results.is_empty());
         assert_eq!(results[0].name, "John_Smith");
+    }
+
+    /// A zero page size arrives only off the network (`new` clamps it), and used to reach
+    /// `TopDocs::with_limit(0)`, which panics.
+    #[tokio::test]
+    async fn zero_page_size_from_the_wire_does_not_panic() {
+        let engine = FullTextSearchEngine::in_memory().unwrap();
+        let mut entity = parsnip_core::Entity::new(ProjectId::new(), "Alpha", "thing");
+        entity.add_observation("zero page size");
+
+        let query: SearchQuery = serde_json::from_value(serde_json::json!({
+            "text": "zero",
+            "mode": "fulltext",
+            "pagination": {"page": 0, "page_size": 0}
+        }))
+        .unwrap();
+        let results = engine.search(&query, &[entity]).await.unwrap();
+        assert_eq!(results.len(), 1);
     }
 }

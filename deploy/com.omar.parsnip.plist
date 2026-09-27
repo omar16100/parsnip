@@ -33,7 +33,11 @@
           daemon it becomes a proxy pointing at itself and dies on startup, which is
           exactly what happened when launchctl carried the caller's environment in.
         -->
-        <string>exec env -u PARSNIP_SERVER PARSNIP_AUTH_TOKEN="$(cat $HOME/.parsnip/daemon-token)" $HOME/.local/bin/parsnip --local serve --transport sse --host 127.0.0.1 --port 8787</string>
+        <!--
+          The token is read first and checked: if the file is missing or empty the job
+          exits rather than starting a daemon with an empty token.
+        -->
+        <string>TOKEN="$(cat "$HOME/.parsnip/daemon-token")" &amp;&amp; [ -n "$TOKEN" ] || { echo "parsnip: cannot read $HOME/.parsnip/daemon-token" >&amp;2; exit 1; }; exec env -u PARSNIP_SERVER PARSNIP_AUTH_TOKEN="$TOKEN" "$HOME/.local/bin/parsnip" --local serve --transport sse --host 127.0.0.1 --port 8787</string>
     </array>
 
     <key>RunAtLoad</key>

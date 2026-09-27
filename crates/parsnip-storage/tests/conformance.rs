@@ -5,6 +5,8 @@
 //! against both implementations turns any such mismatch into a deterministic failure,
 //! with no HTTP involved: the client is looped straight into the dispatcher.
 
+#![cfg(feature = "remote")]
+
 use std::sync::Arc;
 
 use async_trait::async_trait;

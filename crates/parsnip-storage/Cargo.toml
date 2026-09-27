@@ -3,6 +3,7 @@ name = "parsnip-storage"
 description = "Storage backends for Parsnip memory management platform"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 

@@ -28,8 +28,9 @@ fn parsnip() -> Command {
 
 /// Reserve a port by binding and immediately releasing it.
 ///
-/// Racy in principle, but the daemon binds within milliseconds and the alternative
-/// (`--port 0` plus scraping the log) is more fragile.
+/// Racy: another process can take the port before the daemon binds it. `start_daemon`
+/// detects that (the child exits with "Address already in use") and retries on a fresh
+/// port, which is simpler than `--port 0` plus scraping the log.
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .expect("bind ephemeral port")
@@ -39,44 +40,63 @@ fn free_port() -> u16 {
 }
 
 fn start_daemon(data_dir: &std::path::Path, token: Option<&str>) -> Daemon {
-    let port = free_port();
-    let mut cmd = parsnip();
-    cmd.arg("--data-dir")
-        .arg(data_dir)
-        .arg("--local")
-        .env_remove("PARSNIP_SERVER")
-        .env_remove("PARSNIP_AUTH_TOKEN");
-    if let Some(t) = token {
-        cmd.arg("--auth-token").arg(t);
-    }
-    cmd.arg("serve")
-        .arg("--transport")
-        .arg("sse")
-        .arg("--port")
-        .arg(port.to_string())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
+    let log_path = data_dir.join("daemon.stderr");
+    let mut last_log = String::new();
 
-    // Wrapped in `Daemon` straight away so its Drop kills and reaps the child on every
-    // path, including the panic below when the daemon never becomes healthy.
-    let daemon = Daemon {
-        child: cmd.spawn().expect("spawn parsnip serve"),
-        url: format!("http://127.0.0.1:{port}"),
-    };
-
-    // Poll /health until the daemon answers.
-    let deadline = Instant::now() + Duration::from_secs(20);
-    let health = format!("{}/health", daemon.url);
-    while Instant::now() < deadline {
-        let probe = Command::new("curl")
-            .args(["-sf", "-m", "1", &health])
-            .output();
-        if matches!(probe, Ok(o) if o.status.success()) {
-            return daemon;
+    for _attempt in 0..5 {
+        let port = free_port();
+        let mut cmd = parsnip();
+        cmd.arg("--data-dir")
+            .arg(data_dir)
+            .arg("--local")
+            .env_remove("PARSNIP_SERVER")
+            .env_remove("PARSNIP_AUTH_TOKEN");
+        if let Some(t) = token {
+            cmd.arg("--auth-token").arg(t);
         }
-        std::thread::sleep(Duration::from_millis(100));
+        cmd.arg("serve")
+            .arg("--transport")
+            .arg("sse")
+            .arg("--port")
+            .arg(port.to_string())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::fs::File::create(&log_path).expect("daemon log"));
+
+        // Wrapped in `Daemon` straight away so its Drop kills and reaps the child on every
+        // path, including the panic below when the daemon never becomes healthy.
+        let mut daemon = Daemon {
+            child: cmd.spawn().expect("spawn parsnip serve"),
+            url: format!("http://127.0.0.1:{port}"),
+        };
+
+        // Poll /health until our daemon answers. Checking that the child is still alive
+        // matters: if it lost the port race, whoever holds the port may answer instead.
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let health = format!("{}/health", daemon.url);
+        while Instant::now() < deadline {
+            if daemon.child.try_wait().expect("poll daemon").is_some() {
+                break;
+            }
+            let probe = Command::new("curl")
+                .args(["-sf", "-m", "1", &health])
+                .output();
+            if matches!(probe, Ok(o) if o.status.success())
+                && daemon.child.try_wait().expect("poll daemon").is_none()
+            {
+                return daemon;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+
+        last_log = std::fs::read_to_string(&log_path).unwrap_or_default();
+        if !last_log.contains("Address already in use") {
+            panic!(
+                "daemon at {} never became healthy. stderr:\n{last_log}",
+                daemon.url
+            );
+        }
     }
-    panic!("daemon at {} never became healthy", daemon.url);
+    panic!("daemon kept losing the port race. Last stderr:\n{last_log}");
 }
 
 /// Run the CLI against a daemon.
@@ -401,6 +421,64 @@ fn local_flag_overrides_an_exported_server() {
     assert!(
         listed.contains("offline_only"),
         "--local should have used the local database, got: {listed}"
+    );
+}
+
+/// clap prints `[env: NAME=value]` in help by default, which would leak the token into any
+/// help output pasted into an issue or a log.
+#[test]
+fn help_never_prints_the_token() {
+    for args in [
+        vec!["--help"],
+        vec!["serve", "--help"],
+        vec!["entity", "add", "--help"],
+    ] {
+        let out = parsnip()
+            .env("PARSNIP_AUTH_TOKEN", "canary-token-value")
+            .env_remove("PARSNIP_SERVER")
+            .args(&args)
+            .output()
+            .unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(text.contains("PARSNIP_AUTH_TOKEN"), "{args:?}: {text}");
+        assert!(
+            !text.contains("canary-token-value"),
+            "{args:?} help leaked the token: {text}"
+        );
+    }
+}
+
+/// Exposing the graph beyond loopback needs --allow-remote and a real token, and the
+/// check runs before the database is opened.
+#[test]
+fn serve_refuses_unsafe_binds_before_opening_the_database() {
+    let dir = TempDir::new().unwrap();
+    let serve = |extra: &[&str]| {
+        let mut cmd = local(dir.path());
+        cmd.args(extra)
+            .args(["serve", "--transport", "sse", "--port", "0"]);
+        cmd
+    };
+
+    let out = serve(&[]).args(["--host", "0.0.0.0"]).output().unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--allow-remote"));
+
+    let out = serve(&[])
+        .args(["--host", "0.0.0.0", "--allow-remote"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("auth-token"));
+
+    // An empty token (e.g. an unreadable token file) must not count as a token.
+    let out = serve(&["--auth-token", ""]).output().unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("empty"));
+
+    assert!(
+        !dir.path().join("parsnip.redb").exists(),
+        "a refused serve must not have opened the database"
     );
 }
 

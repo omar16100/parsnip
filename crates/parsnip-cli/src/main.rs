@@ -67,8 +67,15 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub local: bool,
 
+    // hide_env_values: clap otherwise prints the variable's value in --help, which would
+    // put the token into any pasted help output.
     /// Bearer token: required by `serve` for non-localhost, sent by remote-mode clients
-    #[arg(long, env = "PARSNIP_AUTH_TOKEN", global = true)]
+    #[arg(
+        long,
+        env = "PARSNIP_AUTH_TOKEN",
+        global = true,
+        hide_env_values = true
+    )]
     pub auth_token: Option<String>,
 
     #[command(subcommand)]
@@ -265,6 +272,96 @@ fn explain_lock_error(e: parsnip_storage::StorageError, db_path: &Path) -> anyho
     )
 }
 
+/// Whether `command` can render `format`.
+///
+/// Mirrors what the views support (see `view::render`): table and JSON everywhere, CSV only
+/// for row-shaped output, graphml only for export. Checked up front because `emit` runs
+/// after the command, and by then a delete or update has already happened.
+fn check_format(command: &Commands, format: view::OutputFormat) -> Result<(), String> {
+    use commands::entity::EntityCommands;
+    use commands::project::ProjectCommands;
+    use commands::relation::RelationCommands;
+    use view::OutputFormat;
+
+    let supported = match format {
+        OutputFormat::Table | OutputFormat::Json => true,
+        OutputFormat::Graphml => matches!(
+            command,
+            Commands::Export(_) | Commands::Import(_) | Commands::Serve(_)
+        ),
+        OutputFormat::Csv => match command {
+            Commands::Entity(args) => matches!(args.command, EntityCommands::List { .. }),
+            Commands::Relation(args) => matches!(args.command, RelationCommands::List { .. }),
+            Commands::Project(args) => matches!(args.command, ProjectCommands::List),
+            Commands::Search(_)
+            | Commands::Export(_)
+            | Commands::Import(_)
+            | Commands::Serve(_) => true,
+            Commands::Config(_) | Commands::Completions(_) => true,
+        },
+    };
+
+    if supported {
+        return Ok(());
+    }
+    Err(match format {
+        OutputFormat::Graphml => "graphml output is only supported by `parsnip export`.".into(),
+        _ => format!(
+            "{} output is not supported for this command; it has no row shape. \
+             Use --format json.",
+            format.as_str()
+        ),
+    })
+}
+
+/// Resolve `serve`'s host and port to the address to listen on, and refuse to expose the
+/// graph beyond loopback without both `--allow-remote` and a token.
+///
+/// The host is resolved before it is judged: a name such as `localhost` is only trusted if
+/// every address it resolves to is loopback, and `127.0.0.2` or `[::1]` count as loopback
+/// too. IPv6 literals are accepted with or without brackets.
+#[cfg(feature = "sse")]
+async fn resolve_bind(
+    args: &ServeArgs,
+    auth_token: Option<&str>,
+) -> anyhow::Result<std::net::SocketAddr> {
+    use std::net::{IpAddr, SocketAddr};
+
+    if auth_token.is_some_and(|t| t.trim().is_empty()) {
+        anyhow::bail!(
+            "The auth token is set but empty (check --auth-token / PARSNIP_AUTH_TOKEN and \
+             the file it is read from). Refusing to start."
+        );
+    }
+
+    let host = args.host.trim_start_matches('[').trim_end_matches(']');
+    let addrs: Vec<SocketAddr> = match host.parse::<IpAddr>() {
+        Ok(ip) => vec![SocketAddr::new(ip, args.port)],
+        Err(_) => tokio::net::lookup_host((host, args.port))
+            .await
+            .map_err(|e| anyhow::anyhow!("cannot resolve --host {}: {e}", args.host))?
+            .collect(),
+    };
+    let Some(first) = addrs.first().copied() else {
+        anyhow::bail!("--host {} resolved to no addresses", args.host);
+    };
+    let is_loopback = addrs.iter().all(|a| a.ip().is_loopback());
+    tracing::debug!(host = %args.host, ?addrs, is_loopback, "resolved serve address");
+
+    if !is_loopback && !args.allow_remote {
+        anyhow::bail!(
+            "Binding to {} requires --allow-remote flag.\n\
+             WARNING: This exposes your knowledge graph to the network!",
+            args.host
+        );
+    }
+    if !is_loopback && auth_token.is_none() {
+        anyhow::bail!("Non-localhost binding requires --auth-token or PARSNIP_AUTH_TOKEN env var");
+    }
+
+    Ok(first)
+}
+
 // CLI commands use a current_thread runtime for faster cold start; `serve` needs a
 // multi-threaded one because it is a daemon handling concurrent clients whose storage
 // calls block on redb I/O.
@@ -324,6 +421,22 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             .or_else(|| config::Config::load().server_url)
     };
 
+    // Refuse an output format the command cannot render before anything runs, so a
+    // mutation is never performed and then reported as a usage error.
+    if let Err(message) = check_format(&cli.command, cli.format) {
+        eprintln!("{message}");
+        std::process::exit(2);
+    }
+
+    // Vet the listen address before opening storage, so a refused bind has no side effects.
+    #[cfg(feature = "sse")]
+    let sse_bind = match &cli.command {
+        Commands::Serve(args) if matches!(args.transport.as_str(), "sse" | "http") => {
+            Some(resolve_bind(args, cli.auth_token.as_deref()).await?)
+        }
+        _ => None,
+    };
+
     // Initialize storage
     let ctx = AppContext::new(&cli, server_url.as_deref()).await?;
 
@@ -339,28 +452,10 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             match args.transport.as_str() {
                 #[cfg(feature = "sse")]
                 "sse" | "http" => {
-                    let is_localhost =
-                        args.host == "127.0.0.1" || args.host == "localhost" || args.host == "::1";
-
-                    // Security: require --allow-remote for non-localhost binding
-                    if !is_localhost && !args.allow_remote {
-                        anyhow::bail!(
-                            "Binding to {} requires --allow-remote flag.\n\
-                             WARNING: This exposes your knowledge graph to the network!",
-                            args.host
-                        );
-                    }
-
-                    // Security: require auth token for non-localhost or if specified
-                    if !is_localhost && cli.auth_token.is_none() {
-                        anyhow::bail!(
-                            "Non-localhost binding requires --auth-token or PARSNIP_AUTH_TOKEN env var"
-                        );
-                    }
-
-                    let addr = format!("{}:{}", args.host, args.port);
+                    let addr = sse_bind.expect("resolved before storage was opened");
                     tracing::info!("Starting MCP server with SSE transport on {}", addr);
-                    parsnip_mcp::run_sse_server(server, &addr, cli.auth_token.clone()).await?;
+                    parsnip_mcp::run_sse_server(server, &addr.to_string(), cli.auth_token.clone())
+                        .await?;
                 }
                 #[cfg(not(feature = "sse"))]
                 "sse" | "http" => {

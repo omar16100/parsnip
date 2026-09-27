@@ -81,7 +81,7 @@ impl SearchEngine for ExactSearchEngine {
 
         // Apply pagination
         let offset = query.pagination.offset();
-        let limit = query.pagination.page_size;
+        let limit = query.pagination.limit();
 
         if offset < results.len() {
             results = results.into_iter().skip(offset).take(limit).collect();

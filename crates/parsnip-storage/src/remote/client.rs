@@ -95,9 +95,12 @@ impl HttpTransport {
             )));
         }
 
+        // No redirects: the daemon never issues one, and reqwest keeps the Authorization
+        // header across a same-host redirect even when it downgrades https to http.
         let client = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| StorageError::Remote(format!("could not build HTTP client: {e}")))?;
 
@@ -571,6 +574,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(feature = "remote-tls"))]
     fn https_without_tls_feature_is_refused_clearly() {
         match HttpTransport::new("https://example.com", None) {
             Ok(_) => panic!("https must be refused without the remote-tls feature"),
@@ -579,6 +583,12 @@ mod tests {
                 "error should name the feature, got: {e}"
             ),
         }
+    }
+
+    #[test]
+    #[cfg(feature = "remote-tls")]
+    fn https_is_accepted_with_the_tls_feature() {
+        assert!(HttpTransport::new("https://example.com", None).is_ok());
     }
 
     #[test]
