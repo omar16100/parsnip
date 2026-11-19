@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>parsnip: local-first memory graph</title>
-  <meta name="description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Fast, private, portable.">
+  <meta name="description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Private and portable.">
 
   <!-- Open Graph -->
   <meta property="og:title" content="parsnip: local-first memory graph">
-  <meta property="og:description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Fast, private, portable.">
+  <meta property="og:description" content="A single-binary graph database for AI assistants. Store facts as entities and relations. Private and portable.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://omar16100.github.io/parsnip/">
 
@@ -1067,7 +1067,7 @@
         <div class="feature-card">
           <div class="feature-icon">🏠</div>
           <h3>Local-First</h3>
-          <p>Completely offline. Your data never leaves your machine. Private by design, portable by nature.</p>
+          <p>Offline by default. In the default setup, your data stays on your machine. Remote mode is opt-in.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🕸️</div>
@@ -1087,7 +1087,7 @@
         <div class="feature-card">
           <div class="feature-icon">🔀</div>
           <h3>Fuzzy + Full-text</h3>
-          <p>Fuzzy matching for typos, full-text search for relevance. Find what you meant, not just what you typed.</p>
+          <p>Fuzzy matching for typos, and full-text keyword search over names, types, observations and tags.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🤖</div>
@@ -1155,7 +1155,7 @@
         </div>
         <div class="search-card">
           <h4>Full-text</h4>
-          <p>Tantivy BM25 ranking for relevance scoring</p>
+          <p>Tantivy keyword search; BM25 selects the top matches (no score sort yet)</p>
         </div>
         <div class="search-card">
           <h4>Hybrid</h4>
@@ -1217,7 +1217,7 @@
           <ul>
             <li><code>--mode exact</code>: substring match</li>
             <li><code>--mode fuzzy</code>: typo-tolerant</li>
-            <li><code>--mode fulltext</code>: BM25 ranking</li>
+            <li><code>--mode fulltext</code>: Tantivy keyword search</li>
             <li><code>--mode hybrid</code>: currently full-text</li>
             <li><code>--all-projects</code>: cross-project</li>
           </ul>
@@ -1361,7 +1361,7 @@
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-1" id="faq-btn-1">What is parsnip?</button>
           <div class="faq-answer" id="faq-1" role="region" aria-labelledby="faq-btn-1">
-            <p>Parsnip is a single-binary graph database designed for AI assistants and knowledge workers. It stores durable facts as entities and relations, enabling fast retrieval through integrated search and graph traversal.</p>
+            <p>Parsnip is a single-binary graph database designed for AI assistants and knowledge workers. It stores durable facts as entities and relations, with retrieval through integrated search and graph traversal.</p>
           </div>
         </div>
         <div class="faq-item">
@@ -1379,7 +1379,7 @@
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-4" id="faq-btn-4">How is this different from other knowledge tools?</button>
           <div class="faq-answer" id="faq-4" role="region" aria-labelledby="faq-btn-4">
-            <p>Unlike cloud-based tools, parsnip is fully local and private. Unlike note apps, it uses graph semantics (entities + relations) for structured knowledge. Unlike vector databases, it supports cross-project search without mixing namespaces.</p>
+            <p>Unlike cloud-based tools, parsnip is fully local and private. Unlike note apps, it uses graph semantics (entities + relations) for structured knowledge. It supports cross-project search without mixing namespaces.</p>
           </div>
         </div>
         <div class="faq-item">
@@ -1403,7 +1403,7 @@
         <div class="faq-item">
           <button class="faq-question" role="button" aria-expanded="false" aria-controls="faq-8" id="faq-btn-8">What's the difference between search modes?</button>
           <div class="faq-answer" id="faq-8" role="region" aria-labelledby="faq-btn-8">
-            <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant (nucleo matcher). <strong>Fulltext</strong>: BM25 relevance ranking. <strong>Hybrid</strong>: accepted, currently runs the full-text engine.</p>
+            <p><strong>Exact</strong>: substring match. <strong>Fuzzy</strong>: typo-tolerant (nucleo matcher). <strong>Fulltext</strong>: Tantivy keyword search; BM25 selects the top matches, but results keep storage order, not score order. <strong>Hybrid</strong>: accepted, currently runs the full-text engine.</p>
           </div>
         </div>
         <div class="faq-item">
