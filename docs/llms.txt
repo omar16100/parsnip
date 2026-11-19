@@ -1,12 +1,12 @@
 # Parsnip
 
-> A local-first graph database for AI assistants and knowledge workers. Store facts as entities and relations with fast search, graph traversal, and MCP integration. Single binary, zero external dependencies, completely offline.
+> A local-first graph database for AI assistants and knowledge workers. Store facts as entities and relations with search, graph traversal, and MCP integration. Single binary, zero external dependencies, offline by default (remote mode is opt-in).
 
 Parsnip is a Rust-based knowledge graph that runs entirely on your machine. It stores structured knowledge as entities (people, concepts, projects) connected by typed relations (works_at, reports_to, depends_on). Each entity can have observations (facts) and tags for filtering.
 
 Key capabilities:
 - Graph-native storage using ReDB (default) or SQLite
-- Search modes: exact, fuzzy, and full-text (Tantivy BM25); `hybrid` is accepted and currently runs full-text
+- Search modes: exact, fuzzy, and full-text (Tantivy keyword search; BM25 selects the top matches, results are not sorted by score yet); `hybrid` is accepted and currently runs full-text
 - Cross-project search without mixing namespaces
 - Graph traversal with BFS, Dijkstra shortest path, and filtered exploration
 - MCP server with 13 tools for AI assistant integration

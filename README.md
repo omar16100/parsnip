@@ -11,7 +11,7 @@
 
 ## What is parsnip?
 
-Parsnip is a single-binary graph database designed to store durable facts as **entities** and **relations**, enabling fast, reliable retrieval through integrated search and graph traversal.
+Parsnip is a single-binary graph database designed to store durable facts as **entities** and **relations**, with retrieval through integrated search and graph traversal.
 
 **The problem:** Memory is scattered across chat logs, notes, and one-off files. AI assistants forget everything between sessions.
 
@@ -37,7 +37,7 @@ Parsnip is a single-binary graph database designed to store durable facts as **e
 
 - **Local-first**: works offline, and by default your data stays on your machine. [Remote mode](#remote-mode) is opt-in.
 - **Graph-native**: store knowledge as entities, relations, and observations.
-- **Search modes**: exact, fuzzy (typo-tolerant) and full-text (BM25). `hybrid` is accepted and currently runs full-text.
+- **Search modes**: exact, fuzzy (typo-tolerant) and full-text (Tantivy keyword search). Full-text uses BM25 to select the top matches, but it does not yet sort the results by score. `hybrid` is accepted and currently runs full-text.
 - **Cross-project search**: query across all projects without mixing namespaces.
 - **MCP integration**: 13 tools for AI assistants via the Model Context Protocol.
 - **Graph traversal**: BFS traversal, Dijkstra shortest path, filters by entity and relation type.
@@ -193,7 +193,7 @@ parsnip search <QUERY>
 # Search modes
 parsnip search <QUERY> --mode exact      # Substring match
 parsnip search <QUERY> --mode fuzzy      # Typo-tolerant
-parsnip search <QUERY> --mode fulltext   # BM25 ranking
+parsnip search <QUERY> --mode fulltext   # Tantivy keyword search (no score sort yet)
 parsnip search <QUERY> --mode hybrid     # Currently the same as fulltext
 
 # Filter by tags
@@ -358,10 +358,12 @@ Add to your `claude_desktop_config.json`:
 |------|-------------|----------|
 | **Exact** | Substring matching | Precise queries, known names |
 | **Fuzzy** | Nucleo-based, typo-tolerant | Misspellings, partial recall |
-| **Full-text** | Tantivy BM25 ranking | Natural language queries |
+| **Full-text** | Tantivy keyword search; BM25 selects the top matches, results keep storage order | Keyword queries over names, types, observations and tags |
 | **Hybrid** | Currently runs the full-text engine | Same as full-text for now |
 
 `search --fuzzy` is shorthand for `--mode fuzzy`. `--threshold` is accepted but not yet applied by the fuzzy engine.
+
+Full-text and hybrid do not yet apply the `--tag` or `--type` filters, and they return at most 100 results.
 
 ## Storage Backends
 

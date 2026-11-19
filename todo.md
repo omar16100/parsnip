@@ -2,6 +2,14 @@
 
 ## Completed
 
+### Docs: full-text ranking claim (19 Nov 2026, branch `docs/readme-search-accuracy`)
+- [x] README, `docs/index.html` and `docs/llms.txt` said "BM25 ranking". `fulltext.rs` uses BM25 only to select
+      the top matches, then returns entities in storage order. The docs now say this.
+- [x] Review fixes: full field list on the site, full-text filter and 100-result limits in the README,
+      removed unmeasured "fast" / "completely offline" claims and an unsourced vector-DB comparison
+- [ ] Open: apply `--tag` / `--type` filters in full-text mode; connect `--limit` to pagination
+- [ ] Open: sort full-text results by score, then restore the ranking claim
+
 ### Simplify Project UX (Invisible Projects)
 - [x] Global search by default - `handlers.rs:144` changed `search_all.unwrap_or(false)` to `true`
 - [x] Fix relation creation to use real entity IDs instead of fake IDs

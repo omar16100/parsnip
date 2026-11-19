@@ -9,6 +9,13 @@ share one version.
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation: the README, site and `llms.txt` no longer say that full-text search ranks
+  results by BM25. Tantivy uses BM25 to select the top matches, but the engine returns them
+  in storage order. The README now says that full-text ignores `--tag` and `--type` and
+  returns at most 100 results. Unmeasured "fast" and "completely offline" claims were removed.
+
 ## [0.2.0] - 2026-09-27
 
 Install with `cargo install parsnip-cli` (the binary is `parsnip`; the crates.io crate
